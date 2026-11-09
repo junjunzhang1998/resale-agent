@@ -1,0 +1,268 @@
+{
+ "kind": "ebay",
+ "params": {
+  "q": "AirPods Pro 2",
+  "filter": "conditionIds:{2750|2990|3000|3010|4000|5000|6000},priceCurrency:USD,itemLocationCountry:US,deliveryCountry:US",
+  "limit": 10
+ },
+ "response": {
+  "total": 6085,
+  "itemSummaries": [
+   {
+    "itemId": "v1|116396798118|0",
+    "title": "Apple AirPods Pro 2 White With USB-C Charging Case In Ear Headphones MTJV3AM/A -",
+    "price": {
+     "value": "93.00",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-12T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-14T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/116396798118?_skw=AirPods+Pro+2&hash=item1b19ca30a6:g:PDkAAeSw10Jq1ljd",
+    "itemCreationDate": "2024-11-19T11:36:53.000Z"
+   },
+   {
+    "itemId": "v1|407219333647|0",
+    "title": "AirPods Pro 2nd Generation USB-C Magsafe Charging Case Wireless Earbuds",
+    "price": {
+     "value": "79.99",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-12T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-16T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE",
+     "BEST_OFFER"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/407219333647?_skw=AirPods+Pro+2&hash=item5ed029ea0f:g:ZIIAAeSwogFqOZ~p&amdata=enc%3AAQALAAAA8Of5zIIojhOf%2BkQK%2Bxzjn7malX4VN7keNqJ1Pree5rZ%2B9DCNamxFrNDIyFHNQEH4cDZR4MStK01slqrJZLsyzDQJtPZuC3OuTcmT2PIWxY6U7jgrlplhct4H62BrboXa3MHF%2FdwW0kTgFbABXnWBgB4xH3AM%2FMua%2Fiomof1aFiKjK%2BPE6Np7gyAi49nknQ2QmUN9OOl7yMo4IHW0ZlU2qqqDfkfeWzEWVc5EvmE9DHrxK0s1PWMkgeoOe2nEeOj%2B12sL9lcHTVhDN%2B2QK1xAHtr9x5tVC02fromo%2FYajhumiyVGkMEtlkPK3hWsJePRn6g%3D%3D",
+    "itemCreationDate": "2026-09-16T20:07:02.000Z"
+   },
+   {
+    "itemId": "v1|407340004340|0",
+    "title": "Apple Airpods Pro 2 Wireless Active Noise Cancelling Earbuds ",
+    "price": {
+     "value": "74.99",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-12T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-14T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE",
+     "BEST_OFFER"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/407340004340?_skw=AirPods+Pro+2&hash=item5ed75b33f4:g:oyMAAeSwmalq61lr&amdata=enc%3AAQALAAAA8Of5zIIojhOf%2BkQK%2Bxzjn7nj9PodDunXSm1bAkd%2BN%2FonpJjV5SaCf52apQCRzMJ5HJqwyKLUz30oGs8onJ4iUmYr3MfzKuIFInFA7S%2BSpqdX0SDJVrCjujw2ZWUFkP5Ug9ehW%2FJYWJpyd5x9%2FN%2FDoBKpsdPmEqtVUZaqGNWjoKK4iSQYB90vxfZcCOoB21uaJUShO4vl1Y8oEoyG4BnMpK1VDK533zBoj5hERsVCP3MzZEzCa4bSEP%2BBJD9COUrpFVvbL%2BmH45OKfYGBqsETUgI7a%2B7z8Nzh%2FBQF8KrXey99OvVShB%2B1tfe8VckswUqJuA%3D%3D",
+    "itemCreationDate": "2026-11-04T16:13:36.000Z"
+   },
+   {
+    "itemId": "v1|158347275617|0",
+    "title": "AirPods Pro 2nd generation Apple Bluetooth w/case noise cancellation genuine \ud83c\udf1f ",
+    "price": {
+     "value": "99.87",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "buyingOptions": [
+     "FIXED_PRICE",
+     "BEST_OFFER"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/158347275617?_skw=AirPods+Pro+2&hash=item24de3bad61:g:ypcAAeSwHQtquO7z&amdata=enc%3AAQALAAAA8Of5zIIojhOf%2BkQK%2Bxzjn7klPzFRcqt3h0W6RRFlWGzLdLIh7qm4y9AqbNJ4vIZfeUkP9MFMwStl0cU0zh4FCY3WfhFn%2F6kf060FT57g7zZanlSf4HsmU%2BEDk6xksPRYyqDFgd8rHcHnXlAqSSzJvR%2BMViPMOZnOJN%2BS0KL0Rta6wqjLH7VNTkzfFv3K2IZzgPrWvV%2F4bGQwcrYo4yE%2FX7HMCiTOUdD7IsnDqQ1SHAGFzwm91F%2BNgVt70ZJiote0yc6KRhAEWluCf0y0EqNSpsDzbQaD8cZPf9CloNQVjCEBwY5XVmVG9b4AT5qQr%2By29g%3D%3D",
+    "itemCreationDate": "2026-09-28T10:28:21.000Z"
+   },
+   {
+    "itemId": "v1|206671145143|0",
+    "title": "Genuine Apple AirPods Pro 2nd Gen USB-C MagSafe Charging Case A2968 Only",
+    "price": {
+     "value": "25.19",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-13T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-17T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/206671145143?_skw=AirPods+Pro+2&hash=item301e8f68b7:g:hG8AAeSwn7Rq6P6A",
+    "itemCreationDate": "2026-11-02T21:08:57.000Z"
+   },
+   {
+    "itemId": "v1|920116545825|0",
+    "title": "Apple AirPods Pro 2nd Generation with MagSafe Wireless Charging Case",
+    "price": {
+     "value": "50.00",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-13T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-19T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE",
+     "BEST_OFFER"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/920116545825?_skw=AirPods+Pro+2&hash=itemd63b384921:g:kwIAAeSwTARq76FF",
+    "itemCreationDate": "2026-11-08T22:11:52.000Z"
+   },
+   {
+    "itemId": "v1|267837965856|0",
+    "title": "Apple AirPods Pro 2nd Generation with MagSafe Wireless Charging Case (USB\u2011C)",
+    "price": {
+     "value": "89.99",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "5.99",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-14T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-20T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE",
+     "BEST_OFFER"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/267837965856?_skw=AirPods+Pro+2&hash=item3e5c630620:g:f3gAAeSws~hq8PP~",
+    "itemCreationDate": "2026-11-08T22:17:48.000Z"
+   },
+   {
+    "itemId": "v1|960172061641|0",
+    "title": "LEFT Earbuds For Apple AirPods Pro 2nd Gen LIGHTNING Left Airpods A2699 Model",
+    "price": {
+     "value": "45.00",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-12T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-16T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE",
+     "BEST_OFFER"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/960172061641?_skw=AirPods+Pro+2&hash=itemdf8eb6f3c9:g:lbAAAeSwrEFq8QVU",
+    "itemCreationDate": "2026-11-08T23:28:18.000Z"
+   },
+   {
+    "itemId": "v1|117055613917|0",
+    "title": "Apple AirPods Pro 2nd Generation USB-C full set MTJV3AM/A USED",
+    "price": {
+     "value": "97.99",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-12T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-14T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/117055613917?_skw=AirPods+Pro+2&hash=item1b410eebdd:g:6CEAAeSwCXFokiNo&amdata=enc%3AAQALAAAA8Of5zIIojhOf%2BkQK%2Bxzjn7nTmChjbp67VqNowuHiGWqBkhX2z7uTx7rRVVkq2u%2FwfJAPOS%2BSnctyRR8X6qeQOad%2Fue1HDZzDtmJfj%2FPEghNZ3hv8rsGraNGBCo09RMqjYFvHsAc2C5hEz%2F1M2NS1nLun8SGIRymTAuAql1rXWr6%2FeK0o7Ja%2FkaS7aqRnfME%2BXfP%2FRz2ll%2BITfuSPJp%2BBEFVH8mucZWwWj38C20exD6ZgTSM88nzk8%2BlIDxRsDNXenb47a4u3PLWBtha3qtucbqHIh4FjbDI%2B4lQMq4nruMr20RAStnAv2OwMOrI6DeA7Sg%3D%3D",
+    "itemCreationDate": "2026-02-24T20:56:22.000Z"
+   },
+   {
+    "itemId": "v1|137908614293|0",
+    "title": "Apple AirPods Pro 2nd Generation  Lightly Used Tested Sold As Is",
+    "price": {
+     "value": "60.00",
+     "currency": "USD"
+    },
+    "condition": "Used",
+    "conditionId": "3000",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      },
+      "minEstimatedDeliveryDate": "2026-11-13T08:00:00.000Z",
+      "maxEstimatedDeliveryDate": "2026-11-18T08:00:00.000Z"
+     }
+    ],
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemWebUrl": "https://www.ebay.com/itm/137908614293?_skw=AirPods+Pro+2&hash=item201bfe7495:g:CiEAAeSwmbxqtcTO&amdata=enc%3AAQALAAAA8Of5zIIojhOf%2BkQK%2Bxzjn7m%2F3seWfQ9866hBTJY9%2BsSpZ%2BLZ8SgRh%2Fr68SD4VhICc9EnPDAHy%2FdtIvG%2BdODbOTeoxy%2FE2Kn8LuPhreUTlSbekuUe%2Bao8oCA4mvYv4ID0vFbhIfYJU6s7qnaqVBN1czPyZuD2E0VSYhBpbE6XNth3CLYWqgjNYR0RZWsxdgbUN73d%2BmDo46pnejQxOvhxFshvlszU0dNWppK73FtLwlVXu7uHqyhKihEqBAAQRb4m422YNjQ1J%2FoQvxm5nvscxgHRi2sJ3KpAss6Qk%2BimUdaOXo0py0129br3xVWuxoOD3A%3D%3D",
+    "itemCreationDate": "2026-11-06T19:54:30.000Z"
+   }
+  ]
+ }
+}

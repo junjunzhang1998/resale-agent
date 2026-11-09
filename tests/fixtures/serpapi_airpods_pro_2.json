@@ -1,0 +1,106 @@
+{
+ "params": {
+  "engine": "google_shopping",
+  "q": "AirPods Pro 2",
+  "gl": "us",
+  "hl": "en"
+ },
+ "response": {
+  "shopping_results": [
+   {
+    "position": 1,
+    "title": "Apple AirPods Pro with MagSafe Case",
+    "product_id": "4891805616949897996",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=catalogid:4891805616949897996,productid:11901315168138976013,headlineOfferDocid:11491329379459524938,imageDocid:14923301267502472160,rds:PC_3896066944466806859|PROD_PC_3896066944466806859,gpcid:3896066944466806859,mid:576462809303838237,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "Best Buy",
+    "price": "$249.95",
+    "extracted_price": 249.95
+   },
+   {
+    "position": 2,
+    "title": "Apple AirPods Pro 2",
+    "product_id": "10908229999226551247",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=catalogid:10908229999226551247,productid:9118968677399308961,headlineOfferDocid:648215791724948742,imageDocid:16484102742551133251,rds:PC_13958746444891470322|PROD_PC_13958746444891470322,gpcid:13958746444891470322,mid:576462896442536031,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "eBay",
+    "price": "$70.00",
+    "extracted_price": 70.0,
+    "second_hand_condition": "pre-owned"
+   },
+   {
+    "position": 3,
+    "title": "Apple AirPods Pro (2nd Generation) with MagSafe Case (usbc), White",
+    "product_id": "4617563738596851736",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=productid:4617563738596851736,headlineOfferDocid:4617563738596851736,imageDocid:9677471386645693796,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "Walmart - Cellfeee",
+    "price": "$139.99",
+    "extracted_price": 139.99
+   },
+   {
+    "position": 4,
+    "title": "AirPods Pro Apple",
+    "product_id": "6883422599141817139",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=catalogid:6883422599141817139,productid:11263843156781472965,headlineOfferDocid:9400195024815288438,imageDocid:6587012011078372970,rds:PC_2026503356983009469|PROD_PC_2026503356983009469,gpcid:2026503356983009469,mid:576462914536273474,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "eBay",
+    "price": "$99.99",
+    "extracted_price": 99.99,
+    "old_price": "Usually $140",
+    "extracted_old_price": 140
+   },
+   {
+    "position": 5,
+    "title": "AirPods Pro 2",
+    "product_id": "17021463856431492262",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=productid:17021463856431492262,headlineOfferDocid:17021463856431492262,imageDocid:5031373844405950633,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "Poshmark",
+    "price": "$99.00",
+    "extracted_price": 99.0
+   },
+   {
+    "position": 6,
+    "title": "Apple Airpods Pro 2 Wireless Earbuds Bluetooth Headphones",
+    "product_id": "13260867170127912206",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=catalogid:13260867170127912206,productid:12491838904235561582,headlineOfferDocid:13792863320290762201,imageDocid:13763384649993497633,rds:PC_2364577390337794330|PROD_PC_2364577390337794330,gpcid:2364577390337794330,mid:576462568016244430,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "Whatnot",
+    "price": "$49.00",
+    "extracted_price": 49.0
+   },
+   {
+    "position": 7,
+    "title": "Apple AirPods Pro",
+    "product_id": "3355367176201709737",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=catalogid:3355367176201709737,productid:9673911430273424987,headlineOfferDocid:926335158316328913,imageDocid:13905007720575635496,rds:PC_10233354917689556002|PROD_PC_10233354917689556002,gpcid:16543462830051543970,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "eBay",
+    "price": "$150.00",
+    "extracted_price": 150.0
+   },
+   {
+    "position": 8,
+    "title": "Apple True Wireless In-Ear Headphones AirPods Pro 2. Gen. USB-C",
+    "product_id": "14984580144237381156",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=catalogid:14984580144237381156,productid:10090697018012603465,headlineOfferDocid:3523193951107483044,imageDocid:12917771067754824910,rds:PC_16748937146731061761|PROD_PC_16748937146731061761,gpcid:16748937146731061761,mid:576462912509663913,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "Pawn America",
+    "price": "$109.99",
+    "extracted_price": 109.99,
+    "second_hand_condition": "pre-owned"
+   },
+   {
+    "position": 9,
+    "title": "Audifonos Apple Airpods Pro 2Da Generacin Inalambricos Bluetooth Blanco MQD83LZ/A",
+    "product_id": "17716229396927235299",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=catalogid:17716229396927235299,productid:16201210495085039570,headlineOfferDocid:11564591494882771650,imageDocid:14625488896317100448,rds:PC_5532816606229505117|PROD_PC_5532816606229505117,gpcid:5532816606229505117,mid:576462898605142085,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "mercari.com",
+    "price": "$144.00",
+    "extracted_price": 144.0
+   },
+   {
+    "position": 10,
+    "title": "Airpods Pro 2",
+    "product_id": "3068424092892826524",
+    "product_link": "https://www.google.com/search?ibp=oshop&q=AirPods Pro 2&prds=productid:3068424092892826524,headlineOfferDocid:3068424092892826524,imageDocid:644611460961341455,rds:PC_12333037987818133928|PROD_PC_12333037987818133928,pvt:hg&hl=en&gl=us&udm=28",
+    "source": "eBay",
+    "price": "$100.00",
+    "extracted_price": 100.0
+   }
+  ]
+ }
+}

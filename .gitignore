@@ -13,3 +13,9 @@ wheels/
 project1/
 reference/
 wikipedia-deep-research.zip
+
+# API response cache (tests use tests/fixtures/ instead)
+cache/
+
+# pytest
+.pytest_cache/

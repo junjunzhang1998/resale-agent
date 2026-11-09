@@ -1,17 +1,29 @@
 [project]
 name = "resale-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "Deep research agent that suggests a competitive asking price for a secondhand item from live eBay listings and retail prices"
 readme = "README.md"
 authors = [
     { name = "JJ", email = "Junjunzhang1998@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.162.2",
+    "google-cloud-aiplatform>=2.7.0",
+    "httpx>=0.28.1",
+    "openai-agents[litellm]>=0.24.0",
+    "python-dotenv>=1.2.4",
+    "uvicorn>=0.54.0",
+]
 
-[project.scripts]
-resale-agent = "resale_agent:main"
+[tool.pytest.ini_options]
+# Tool tests run offline against recorded fixtures. Live API checks run only with: uv run pytest -m live
+markers = ["live: calls the real eBay / SerpApi APIs (needs keys in .env and network)"]
+addopts = "-m 'not live'"
+pythonpath = ["."]
+testpaths = ["tests"]
 
-[build-system]
-requires = ["uv_build>=0.12.13,<0.13.0"]
-build-backend = "uv_build"
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

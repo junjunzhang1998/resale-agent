@@ -1,0 +1,228 @@
+{
+ "_note": "Edge cases (auction-only, calculated shipping, a multi-item lot). Hand-written in the Browse API item_summary/search response shape. Replace with a recording: uv run market.py --save-fixtures",
+ "params": {
+  "q": "AirPods Pro 2",
+  "filter": "conditionIds:{2750|2990|3000|3010|4000|5000|6000},priceCurrency:USD,itemLocationCountry:US,deliveryCountry:US",
+  "limit": 10
+ },
+ "response": {
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=AirPods+Pro+2&limit=10",
+  "total": 2481,
+  "limit": 10,
+  "offset": 0,
+  "itemSummaries": [
+   {
+    "itemId": "v1|100000000001|0",
+    "title": "Apple AirPods Pro 2nd Gen with MagSafe USB-C Case - Used Good",
+    "condition": "Used",
+    "conditionId": "3000",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-11T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000001?_skw=airpods&hash=item1",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      }
+     }
+    ],
+    "price": {
+     "value": "129.99",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000002|0",
+    "title": "AirPods Pro 2 USB-C Charging Case Earbuds Excellent",
+    "condition": "Pre-owned - Excellent",
+    "conditionId": "2990",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-12T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000002?_skw=airpods&hash=item2",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      }
+     }
+    ],
+    "price": {
+     "value": "139.00",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000003|0",
+    "title": "Apple AirPods Pro (2nd Generation) Lightning - Used",
+    "condition": "Used",
+    "conditionId": "3000",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-13T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000003?_skw=airpods&hash=item3",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "7.99",
+       "currency": "USD"
+      }
+     }
+    ],
+    "price": {
+     "value": "115.50",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000004|0",
+    "title": "AirPods Pro 2 USB-C, light scratches on case",
+    "condition": "Used",
+    "conditionId": "3000",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-14T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000004?_skw=airpods&hash=item4",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "5.25",
+       "currency": "USD"
+      }
+     }
+    ],
+    "price": {
+     "value": "119.00",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000005|0",
+    "title": "Apple AirPods Pro 2 - Very Good",
+    "condition": "Very Good",
+    "conditionId": "4000",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-15T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000005?_skw=airpods&hash=item5",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      }
+     }
+    ],
+    "price": {
+     "value": "124.95",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000006|0",
+    "title": "AirPods Pro 2nd gen used works great",
+    "condition": "Used",
+    "conditionId": "3000",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-16T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000006?_skw=airpods&hash=item6",
+    "shippingOptions": [
+     {
+      "shippingCostType": "CALCULATED"
+     }
+    ],
+    "price": {
+     "value": "109.00",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000007|0",
+    "title": "Apple AirPods Pro 2 USB-C Used - Like New",
+    "condition": "Like New",
+    "conditionId": "2750",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-17T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000007?_skw=airpods&hash=item7",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "0.00",
+       "currency": "USD"
+      }
+     }
+    ],
+    "price": {
+     "value": "145.00",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000008|0",
+    "title": "AirPods Pro 2 LOT OF 3 used",
+    "condition": "Used",
+    "conditionId": "3000",
+    "buyingOptions": [
+     "FIXED_PRICE"
+    ],
+    "itemCreationDate": "2026-10-18T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000008?_skw=airpods&hash=item8",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "12.00",
+       "currency": "USD"
+      }
+     }
+    ],
+    "price": {
+     "value": "389.00",
+     "currency": "USD"
+    }
+   },
+   {
+    "itemId": "v1|100000000009|0",
+    "title": "AirPods Pro 2 used - auction",
+    "condition": "Used",
+    "conditionId": "3000",
+    "buyingOptions": [
+     "AUCTION"
+    ],
+    "itemCreationDate": "2026-10-19T15:00:00.000Z",
+    "itemWebUrl": "https://www.ebay.com/itm/100000000009?_skw=airpods&hash=item9",
+    "shippingOptions": [
+     {
+      "shippingCostType": "FIXED",
+      "shippingCost": {
+       "value": "4.99",
+       "currency": "USD"
+      }
+     }
+    ],
+    "currentBidPrice": {
+     "value": "72.00",
+     "currency": "USD"
+    }
+   }
+  ]
+ }
+}
