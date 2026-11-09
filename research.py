@@ -260,6 +260,32 @@ def seller_grade(item: "Item") -> str | None:
     return None
 
 
+# The seller's words -> eBay's condition group, checked in code after intake (the model tends to
+# call "new without tags" like_new, which searches Pre-owned - Excellent). Unworn but not sealed
+# or tagged is eBay's "New without box / tags" (1500): open_box. Worn at all is pre-owned.
+OPEN_BOX_WORDS = re.compile(r"\bnew without (the )?(tags?|box)\b|\bnew,? (no|w/o) (tags?|box)\b|\bnwot\b|\bnwob\b|\bnew other\b"
+                            r"|\bnever (been )?(worn|used)\b|\bunworn\b|\bunused\b|\bopened,? (but )?(never|not) used\b", re.I)
+LIKE_NEW_WORDS = re.compile(r"\bworn (once|twice|a (few|couple of) times)\b|\bused (once|twice)\b|\blike[- ]new\b|\bexcellent\b"
+                            r"|\bbarely (worn|used)\b|\bmint\b", re.I)
+NEW_WORDS = re.compile(r"\bnew with (tags?|box)\b|\bnwt\b|\bnwb\b|\bsealed\b|\bbrand new in box\b|\bdeadstock\b", re.I)
+
+
+def map_condition(item: "Item", text: str = "") -> str:
+    """The condition group for the seller's own words (item.condition_detail plus their messages).
+    Wear wins over "new" words ("like new, worn once" is pre-owned); then unworn-but-not-sealed
+    phrases are open_box; then new-with-tags is new. Otherwise the intake's choice stands."""
+    words = f"{item.condition_detail} {text}"
+    if item.condition in ("refurbished", "for_parts"):
+        return item.condition
+    if LIKE_NEW_WORDS.search(words) and not re.search(r"\bnever (been )?(worn|used)\b|\bunworn\b", words, re.I):
+        return "like_new"
+    if OPEN_BOX_WORDS.search(words):
+        return "open_box"
+    if NEW_WORDS.search(words) and item.condition in ("open_box", "like_new"):
+        return "new"
+    return item.condition
+
+
 def grade_weight(listing: str | None, seller: str) -> float:
     """How much a comp counts toward the seller's grade: the same grade 1, one step off 0.5, two or
     more 0.2, ungraded ('Used') 0.5."""
@@ -451,7 +477,17 @@ async def do_search_ebay(state: ResearcherState, query: str, conditions: list[st
     }
 
 
+RETAIL_SIZE = re.compile(r"\s*\b(?:size|sz)\.?\s*\d+(?:\.5)?\s*(?:[wm]\b)?", re.I)
+
+
+def retail_query(query: str) -> str:
+    """Stores sell every size at one price, and Google Shopping answers 'size 7' with resale
+    listings (an AF1 search came back all eBay and Poshmark): drop explicit sizes."""
+    return " ".join(RETAIL_SIZE.sub(" ", query or "").split()) or query
+
+
 async def do_search_retail(state: ResearcherState, query: str) -> dict:
+    query = retail_query(query)
     try:
         result = await asyncio.to_thread(market.retail_search, query)
     except Exception as e:
@@ -630,6 +666,8 @@ BRIEF_GOALS = {
 async def run_researcher(run: Run, brief: Brief, round_no: int) -> dict:
     """Run one researcher in a fresh context. If it fails or skips a step, code finishes the step,
     so a finding always comes back."""
+    if brief.researcher == "exact_comps" and not brief.broadened:
+        brief = brief.model_copy(update={"conditions": [run.item.condition]})  # the mapped group, whatever the Lead sent
     state = ResearcherState(run, brief, round_no)
     tools = [search_retail, review_listings] if brief.researcher == "retail" else [search_ebay, review_listings]
     agent = researcher.clone(name=state.name, tools=tools)
@@ -750,7 +788,8 @@ code computes every number.
    - exact_comps: query = concise eBay keywords for the exact model and variant (no condition
      words); conditions = [the seller's condition].
    - condition_tiers: the same query; conditions = ["new", "open_box", "used", "for_parts"].
-   - retail: query = the product as a store would name it new; conditions = [].
+   - retail: query = the product as a store would name it new, without a clothing or shoe size
+     (stores price every size the same); conditions = [].
    Add a line to a brief's instructions only if the item needs it (e.g. "must include the case").
 2. Read the result's gaps. If there are none, reply DONE. Otherwise call dispatch_researchers
    again with only the briefs that fill the gaps, with broadened = true:
@@ -782,7 +821,9 @@ Ready needs all of:
   for phones, size for clothing, shoes and handbags (e.g. mini, small, medium, jumbo for a Chanel
   flap), screen size for laptops/TVs;
 - the condition: new (sealed), open box, like new, used (any wear), refurbished, or for parts.
-  "good", "works fine", "some scratches" all mean used. "never used, opened" means open_box.
+  "good", "works fine", "some scratches" all mean used. "never used, opened", "new without tags",
+  "new without box", "never worn" and "unworn" mean open_box. "worn once", "like new" and
+  "excellent" mean like_new.
 
 If something required is missing, set ready false and ask ONE short message that asks for every
 missing piece at once, e.g. "Which iPhone model and storage is it, is it unlocked or tied to a
@@ -826,12 +867,16 @@ Price range (price_low to price_high, in dollars):
 - Adjust for the seller's condition detail, what's included, and the condition_tiers spread.
 - Handbags (item_profile.category "handbag"): size, leather and hardware change the price; name
   the ones the comps share, e.g. "medium caviar flaps with gold hardware".
-- Retail is a reference, not a rule. retail_reference gives resale_to_retail_ratio (median comp
-  price / lowest new price) and its role:
-  - "ceiling" (ratio < 1): stay below the lowest new price. If successor is true, say the price
+- Retail is a reference, not a rule. retail_reference.price is the retail ceiling: the median of
+  major retailers, each store counted once at its lowest price (retail_reference.basis says which), robust to one cheap offer.
+  resale_to_retail_ratio is median comp price / that ceiling. Quote the ceiling with its basis,
+  e.g. "$110 (median of 4 major retailers)", with a tag only when retail_reference.id is set.
+  retail_reference.lowest_note, when set, is one cheaper deal: you may mention it as a deal, but
+  it is never the ceiling. The role:
+  - "ceiling" (ratio < 1): stay below the ceiling. If successor is true, say the price
     is the successor model's: a looser ceiling.
   - "premium" (ratio > 1): the item resells above retail (out of stock, limited, discontinued).
-    Say so with the ratio, e.g. "used listings ask 1.4x the $199 retail price [R2]", and price
+    Say so with the ratio, e.g. "used listings ask 1.4x the $199 retail price", and price
     from the comps alone.
   - null: no retail price. retail_status.note says why, in code's words: use its meaning and
     never contradict it. "boutique_only" means the brand sells new only in its boutiques: say
@@ -1060,7 +1105,7 @@ def new_vs_retail(run: Run) -> dict | None:
     if ratio > NEW_BELOW_RETAIL:
         return None
     sentence = (f"Sealed new listings on eBay ask a median {_money(st['median'])} across {st['n']} listings, "
-                f"{round((1 - ratio) * 100)}% below the {_money(ref['price'])} new price at {ref['retailer']} [{ref['id']}]: "
+                f"{round((1 - ratio) * 100)}% below retail ({ceiling_text(ref)}): "
                 f"buyers can get it new for well under retail, which pulls used prices down.")
     return {"n": st["n"], "median": st["median"], "retail_price": ref["price"], "ratio": round(ratio, 2), "sentence": sentence}
 
@@ -1116,9 +1161,30 @@ def no_new_retail(run: Run) -> bool:
     return any(f["researcher"] == "retail" and f["only_resale_listings"] for f in run.findings)
 
 
+# Stores whose new price is a real retail price. With two or more of their offers, the ceiling
+# comes from them alone; a marketplace third-party seller's offer can't set it.
+MAJOR_RETAILERS = ("best buy", "target", "walmart", "amazon", "apple", "costco", "sam's club", "macy's", "nordstrom",
+                   "kohl's", "dick's", "foot locker", "finish line", "jd sports", "champs", "zappos", "academy",
+                   "b&h", "newegg", "staples", "home depot", "lowe's", "gamestop", "verizon", "at&t", "t-mobile",
+                   "bloomingdale", "saks", "neiman marcus", "dsw", "rei", "ulta", "sephora", "kicks crew")
+OUTLIER_SHARE = 0.6  # an offer under this share of the retail median is a deal or a mistake, not the ceiling
+
+
+def is_major_retailer(retailer: str, product: str) -> bool:
+    """A big-box store, or the brand's own store ("Nike" for a Nike shoe)."""
+    r = (retailer or "").lower()
+    brand = (product or "").split()[0].lower() if product else ""
+    first_party = len(brand) > 2 and r.split(" - ")[0].strip().startswith(brand)
+    # "Walmart - Cellfeee" is a marketplace seller on Walmart, not Walmart
+    return first_party or (" - " not in r and any(m in r for m in MAJOR_RETAILERS))
+
+
 def retail_reference(run: Run) -> dict | None:
-    """The lowest new retail price and how resale compares to it. The item's own retail price wins
-    over its successor's. role: "ceiling" if comps sit below retail, "premium" if above."""
+    """The retail ceiling and how resale compares to it. The item's own retail offers win over its
+    successor's. Robust to one cheap offer: the ceiling is the median of major-retailer offers
+    (all kept offers when fewer than two are major), after dropping offers under OUTLIER_SHARE of
+    that median. The cheapest offer is reported as a deal (lowest_note), not as the ceiling.
+    role: "ceiling" if comps sit below it, "premium" if above."""
     retail = [f for f in run.findings if f["researcher"] == "retail"]
     for successor in (False, True):
         ids = [sid for f in retail if f["successor"] == successor for sid in f["kept_ids"]]
@@ -1127,21 +1193,57 @@ def retail_reference(run: Run) -> dict | None:
             break
     else:
         return None
-    lowest = min(priced, key=lambda s: run.sources[s]["extracted_price"])
-    price = run.sources[lowest]["extracted_price"]
+    p = lambda s: run.sources[s]["extracted_price"]  # noqa: E731
+    # one offer per retailer, its cheapest: ten farfetch colorways are one store's price, not ten votes
+    per_store: dict[str, str] = {}
+    for s in sorted(priced, key=p):
+        per_store.setdefault((run.sources[s]["retailer"] or s).lower(), s)
+    stores = list(per_store.values())
+    major = [s for s in stores if is_major_retailer(run.sources[s]["retailer"], run.item.product)]
+    pool = major if len(major) >= 2 else stores
+    first = market.price_stats([p(s) for s in pool])["median"]
+    outliers = [s for s in pool if p(s) < OUTLIER_SHARE * first]
+    pool = [s for s in pool if s not in outliers] or pool
+    ceiling = market.price_stats([p(s) for s in pool])["median"]
+    single = pool[0] if len(pool) == 1 else None
+    if single:
+        basis, retailer = f"{run.sources[single]['retailer']}'s price", run.sources[single]["retailer"]
+    else:
+        names = list(dict.fromkeys(run.sources[s]["retailer"] for s in sorted(pool, key=p)))
+        kind = "major-retailer" if pool[0] in major and len(major) >= 2 else "retail"
+        basis = f"median of {len(pool)} {'major retailers' if kind == 'major-retailer' else 'retailers'}: {', '.join(names[:3])}{', …' if len(names) > 3 else ''}"
+        retailer = "major retailers" if kind == "major-retailer" else "retailers"
+    lowest = min(priced, key=p)
+    lowest_note = None
+    if p(lowest) < 0.95 * ceiling and lowest != single:
+        r = run.sources[lowest]
+        how = f"has it on sale for {_money(p(lowest))} (was {_money(r['extracted_old_price'])})" if r.get("extracted_old_price") else f"lists it for {_money(p(lowest))}"
+        lowest_note = f"One retailer, {r['retailer']}, {how} [{lowest}]: a deal, not the ceiling."
     median = comp_basis(run)[1].get("median")
-    ratio = round(median / price, 2) if median and price else None
+    ratio = round(median / ceiling, 2) if median and ceiling else None
     return {
-        "id": lowest,
-        "price": price,
-        "retailer": run.sources[lowest]["retailer"],
+        "id": single,  # a single offer's id when one offer is the ceiling; else the ceiling is a median
+        "price": ceiling,
+        "basis": basis,
+        "retailer": retailer,
+        "pool_ids": pool,
+        "outlier_ids": outliers,
+        "lowest": {"id": lowest, "price": p(lowest), "retailer": run.sources[lowest]["retailer"]},
+        "lowest_note": lowest_note,
         "successor": successor,
-        "median_new": market.price_stats([run.sources[s]["extracted_price"] for s in priced])["median"],
+        "median_new": market.price_stats([p(s) for s in priced])["median"],
         "on_sale_ids": [s for s in priced if run.sources[s]["old_price"]],
         "comp_median": median,
         "resale_to_retail_ratio": ratio,
         "role": "premium" if ratio is not None and ratio > 1 else "ceiling",
     }
+
+
+def ceiling_text(ref: dict) -> str:
+    """'$110.00 (median of 4 major retailers: ...)' or '$249.95 at Best Buy [R1]'."""
+    if ref["id"]:
+        return f"{_money(ref['price'])} at {ref['retailer']} [{ref['id']}]"
+    return f"{_money(ref['price'])} ({ref['basis']})"
 
 
 def confidence_cap(run: Run) -> tuple[str, str]:
@@ -1308,7 +1410,7 @@ def dedupe_factors(factors: list[str], overlap: float = 0.6) -> list[str]:
 AMOUNT = re.compile(r"\$\s?(\d[\d,]*(?:\.\d{1,2})?)")
 TAG_RUN = re.compile(r"(?:\s*\[[ER]\d+\])+")
 STAT_WORDS = re.compile(r"\b(median|q1|q3|quartiles?|average|mean|weighted|anchor|middle half|typical)\b", re.I)
-BASIS_NAMED = re.compile(r"\b(comps|listings|offers)\b", re.I)
+BASIS_NAMED = re.compile(r"\b(comps|listings|offers|retailers|stores)\b", re.I)
 
 
 def _same_amount(written: str, value) -> bool:
@@ -1336,8 +1438,11 @@ def stat_labels(run: Run) -> list[tuple[float, str, str]]:
         if t["source"] == "condition_search" and t["median"] is not None:
             label = CONDITION_LABELS.get(t["condition"], t["condition"]).lower()
             out.append((t["median"], "median", f"median of {t['n']} {label} listings in the broader condition search"))
-    if (ref := retail_reference(run)) and ref.get("median_new") is not None:
-        out.append((ref["median_new"], "median", "median of the new retail offers"))
+    if ref := retail_reference(run):
+        if not ref["id"]:  # a ceiling that is a median is cited to its basis
+            out.append((ref["price"], "median", ref["basis"]))
+        if ref.get("median_new") is not None:
+            out.append((ref["median_new"], "median", "median of the new retail offers"))
     return out
 
 
@@ -1358,7 +1463,21 @@ def fix_stat_citations(text: str, run: Run) -> str:
     total or shipping and isn't described as a statistic; a statistic is cited to its basis."""
     labels = stat_labels(run)
     edits, seg_start = [], 0
+
+    def own_price(i: str, written: str) -> bool:
+        return i in run.sources and any(_same_amount(written, run.sources[i].get(k))
+                                        for k in ("price", "totalPrice", "shippingCost", "extracted_price", "extracted_old_price"))
+
     for m in TAG_RUN.finditer(text):
+        ids = re.findall(r"[ER]\d+", m.group(0))
+        # a tag that names the listing before its price: "[E34] at $75.95", "[R2] for $99"
+        lead = re.match(r"\s*(?:,|:|\(|at|for|listed at|asks?|asking)?\s*\$\s?(\d[\d,]*(?:\.\d{1,2})?)", text[m.end():])
+        if lead:
+            keep = [i for i in ids if own_price(i, lead.group(1))]
+            if keep != ids:
+                edits.append((m.start(), m.end(), "".join(f"[{i}]" for i in keep) and " " + "".join(f"[{i}]" for i in keep)))
+            seg_start = m.end() + lead.end()  # that amount is claimed; a later tag can't pair with it
+            continue
         boundary = max((b.end() for b in re.finditer(r"[.!?;:]\s", text[:m.start()])), default=0)
         start = max(seg_start, boundary)
         seg_start = m.end()
@@ -1367,15 +1486,13 @@ def fix_stat_citations(text: str, run: Run) -> str:
             continue
         a = amounts[-1]
         before, between = text[max(start, a.start() - 40):a.start()], text[a.end():m.start()]
-        ids = re.findall(r"[ER]\d+", m.group(0))
         is_stat = bool(STAT_WORDS.search(before) or STAT_WORDS.search(between))
-        keep = [] if is_stat else [i for i in ids if i in run.sources and any(
-            _same_amount(a.group(1), run.sources[i].get(k))
-            for k in ("price", "totalPrice", "shippingCost", "extracted_price", "extracted_old_price"))]
+        keep = [] if is_stat else [i for i in ids if own_price(i, a.group(1))]
         if keep == ids:
             continue
         edits.append((m.start(), m.end(), "".join(f"[{i}]" for i in keep) and " " + "".join(f"[{i}]" for i in keep)))
-        if not keep and not BASIS_NAMED.search(before + between):
+        after = re.match(r"\s*\([^)]*\)", text[m.end():])  # "$94.50 [R18] (median of 2 retailers)"
+        if not keep and not BASIS_NAMED.search(before + between + (after.group(0) if after else "")):
             if label := _pick_label(a.group(1), before + between, labels):
                 edits.append((a.end(), a.end(), f" ({label})"))
     for s, e, rep in sorted(edits, key=lambda x: x[0], reverse=True):
@@ -1419,7 +1536,7 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
     low, high = sorted((round(memo.price_low, 2), round(memo.price_high, 2)))
     ref = retail_reference(run)
     if ref and ref["role"] == "ceiling" and high > ref["price"]:
-        warnings.append(f"the range tops the lowest new retail price ({_money(ref['price'])} [{ref['id']}])")
+        warnings.append(f"the range tops the retail ceiling ({ceiling_text(ref)})")
     texts = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"]]
     if wrong := count_mismatches(texts, len(kept_comp_ids(run))):
         warnings.append(f"comp counts {sorted(set(wrong))} differ from the {len(kept_comp_ids(run))} kept comps")
@@ -1562,11 +1679,12 @@ def render(run: Run, memo: dict, rows: dict, cited: list[str]) -> tuple[str, dic
         model = "the successor model's " if ref["successor"] else ""
         x = ref["resale_to_retail_ratio"]
         if ref["role"] == "premium":
-            lines += [f"Resale premium: comps ask {x:.2f}x {model}lowest new price ({_money(ref['comp_median'])} vs "
-                      f"{_money(ref['price'])} [{ref['id']}]), so the price comes from comps alone.", ""]
+            lines += [f"Resale premium: comps ask {x:.2f}x {model}retail price ({_money(ref['comp_median'])} vs "
+                      f"{ceiling_text(ref)}), so the price comes from comps alone.", ""]
         elif x is not None:
-            lines += [f"Resale-to-retail ratio {x:.2f}: comps sit below {model}lowest new price of {_money(ref['price'])} "
-                      f"[{ref['id']}], which acts as a ceiling.", ""]
+            lines += [f"Resale-to-retail ratio {x:.2f}: comps sit below {model}retail ceiling of {ceiling_text(ref)}.", ""]
+        if ref.get("lowest_note"):
+            lines += [ref["lowest_note"], ""]
     status = retail_status(run)
     if status["status"] == "successor":
         lines += [status["note"], ""]
@@ -1594,7 +1712,7 @@ async def write_memo(run: Run) -> tuple[str, dict | None]:
     if not kept_comp_ids(run):
         searched = "; ".join(f"{f['researcher']}: {', '.join(f['queries'])}" for f in run.findings) or "nothing"
         retail = retail_reference(run)
-        extra =f" For reference, it sells new for {_money(retail['price'])} at {retail['retailer']} [{retail['id']}]." if retail else ""
+        extra = f" For reference, it sells new for {ceiling_text(retail)}." if retail else ""
         return (
             f"I couldn't find enough active eBay listings of this item to suggest an asking price (searched {searched}).{extra} "
             "Try a more common name for the item, or check the model name.",
@@ -1667,7 +1785,12 @@ async def answer(turns: list[dict], clarifications: int) -> dict:
         question = intake.question or "What item is it (brand and model), and what condition is it in?"
         return {"response": question, "tool_calls": trace.calls, "memo": None, "clarifying": True}
 
-    run = Run(item=intake.item, assumptions=split_assumptions(intake.assumptions), trace=trace)
+    item = intake.item
+    user_text = turns[-1]["content"]  # the latest message; earlier ones may be about another item
+    if (mapped := map_condition(item, user_text)) != item.condition:
+        trace.record("lead", "map_condition", {"intake": item.condition, "words": item.condition_detail}, {"condition": mapped})
+        item = item.model_copy(update={"condition": mapped})
+    run = Run(item=item, assumptions=split_assumptions(intake.assumptions), trace=trace)
     try:
         await asyncio.wait_for(Runner.run(lead, run.item.model_dump_json(indent=1), context=run, hooks=trace, max_turns=8), RESEARCH_TIMEOUT)
     except Exception as e:  # a timeout or a Lead that won't stop: write from what's found

@@ -747,11 +747,13 @@ function retailSection(m) {
   let body = "", peek;
   if (ref) {
     const model = ref.successor ? "the successor model's " : "";
-    const link = cite(`[${ref.id}]`, m);
+    // a single offer is cited; a median ceiling names its basis
+    const link = ref.id ? cite(`[${ref.id}]`, m) : `<span class="small muted">(${esc(ref.basis || "")})</span>`;
     const x = ref.resale_to_retail_ratio;
     body += ref.role === "premium"
-      ? `<p><span ${stickerAttrs("Resale premium", "mustard")}>Resale premium</span> Used listings ask <b>${x.toFixed(2)}×</b> ${model}lowest new price (${money(ref.comp_median)} vs ${money(ref.price)} ${link}), so the price comes from comps alone.</p>`
-      : `<p>Resale-to-retail ratio <b>${x?.toFixed(2) ?? "?"}</b>: comps sit below ${model}lowest new price, ${money(ref.price)} at ${esc(ref.retailer)} ${link}, which acts as a ceiling.</p>`;
+      ? `<p><span ${stickerAttrs("Resale premium", "mustard")}>Resale premium</span> Used listings ask <b>${x.toFixed(2)}×</b> ${model}retail price (${money(ref.comp_median)} vs ${money(ref.price)} ${link}), so the price comes from comps alone.</p>`
+      : `<p>Resale-to-retail ratio <b>${x?.toFixed(2) ?? "?"}</b>: comps sit below ${model}retail ceiling, ${money(ref.price)}${ref.id ? ` at ${esc(ref.retailer)}` : ""} ${link}.</p>`;
+    if (ref.lowest_note) body += `<p class="small muted">${cite(ref.lowest_note, m)}</p>`;
     if (ref.successor) body += `<p class="small muted">${esc(m.retail_status?.note || "No current retail price for this exact model, so this is its successor: a looser ceiling.")}</p>`;
     peek = `${ref.role === "premium" ? "premium" : "ceiling"} ${money(ref.price)}${x ? ` · ratio ${x.toFixed(2)}` : ""}`;
   }

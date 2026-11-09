@@ -309,7 +309,7 @@ def test_validate_memo_caps_confidence_sorts_range_and_warns_above_retail():
     assert clean["confidence"] == "low" and "Capped" in clean["confidence_reason"]
     assert clean["headline"] == "List at $81 [E1] " and clean["key_factors"] == ["[E2] at $82"]
     assert check["unknown_tags_stripped"] == ["E99"] and set(check["cited"]) == {"E1", "E2", "R1"}
-    assert any("lowest new retail price" in w for w in check["warnings"])
+    assert any("tops the retail ceiling" in w for w in check["warnings"])
 
 
 def test_no_comps_says_so_instead_of_guessing():
@@ -719,7 +719,7 @@ def test_new_listings_far_below_retail_become_a_key_factor():
     run.findings.append(tiers)
     gap = research.new_vs_retail(run)
     assert gap["median"] == 132.5 and gap["ratio"] == round(132.5 / 249.95, 2)
-    assert "47% below the $249.95 new price at Best Buy [R1]" in gap["sentence"]
+    assert "47% below retail ($249.95 at Best Buy [R1])" in gap["sentence"]
     memo = Memo(price_low=82, price_high=88, headline="h", rationale="r.", key_factors=["k"], confidence="high", confidence_reason="c", limitations=[])
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
     assert clean["key_factors"][0].startswith("Sealed new listings on eBay ask a median $132.50")
@@ -813,3 +813,132 @@ def test_retail_title_names_the_model_when_the_store_leaves_it_out():
     assert title == "AirPods Pro" and "personalization option" in note and "doesn't state the model" in note
     assert research.retail_title("Apple AirPods Pro 2 with USB-C", "Apple AirPods Pro (2nd generation)") == ("Apple AirPods Pro 2 with USB-C", "")
     assert research.retail_title("Apple iPhone 13 Pro 128GB", "Apple iPhone 13 Pro")[1] == ""
+
+
+# --- Condition words -> eBay condition group ---
+
+AF1 = Item(product="Nike Air Force 1 '07", variant="women's size 7", condition="like_new", condition_detail="new without tags",
+           included="", search_query="Nike Air Force 1 07 womens size 7")
+
+
+@pytest.mark.parametrize("words, intake, mapped", [
+    ("new without tags", "like_new", "open_box"),
+    ("new without box", "like_new", "open_box"),
+    ("New without the box", "new", "open_box"),
+    ("never worn", "like_new", "open_box"),
+    ("unworn, tried on indoors", "used", "open_box"),
+    ("NWOT", "new", "open_box"),
+    ("worn once", "open_box", "like_new"),
+    ("like new", "used", "like_new"),
+    ("excellent condition", "used", "like_new"),
+    ("like new, never worn", "like_new", "open_box"),  # unworn wins over "like new"
+    ("new with tags", "like_new", "new"),
+    ("good, light scratches", "used", "used"),
+    ("sealed", "new", "new"),
+    ("never used, for parts", "for_parts", "for_parts"),
+])
+def test_condition_words_map_to_the_ebay_group(words, intake, mapped):
+    assert research.map_condition(AF1.model_copy(update={"condition": intake, "condition_detail": words})) == mapped
+
+
+def test_condition_mapping_reads_the_sellers_message_too():
+    item = AF1.model_copy(update={"condition_detail": ""})
+    assert research.map_condition(item, "nike air force 1 07, size 7 for womens, new without tags") == "open_box"
+
+
+def test_exact_comps_search_uses_the_mapped_condition_group(offline_market, monkeypatch):
+    async def broken(*a, **k):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(research.Runner, "run", broken)
+    run = Run(item=AF1.model_copy(update={"condition": "open_box"}), assumptions=[], trace=Trace())
+    asyncio.run(research.run_researcher(run, brief(conditions=["like_new"]), 1))  # the Lead sent like_new
+    search = next(c for c in run.trace.calls if c["name"].startswith("search_ebay"))
+    assert search["args"]["conditions"] == ["open_box"]
+    assert run.findings[0]["conditions"] == ["open_box"]
+
+
+def test_open_box_is_ebays_new_without_box_or_tags():
+    assert market.CONDITION_IDS["open_box"] == [1500]  # "New without box", "New without tags", "New other"
+
+
+# --- Robust retail ceiling ---
+
+
+def af1_retail_run(offers):
+    run = Run(item=AF1.model_copy(update={"condition": "open_box"}), assumptions=[], trace=Trace())
+    for i, price in enumerate([88.0, 90, 92, 94, 96, 98], 1):
+        run.register("E", str(i), {"title": f"AF1 {i}", "price": price, "shippingCost": 0.0, "totalPrice": price, "condition": "New without box",
+                                   "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": f"https://www.ebay.com/itm/{i}"})
+    run.findings.append(fake_finding(n_kept=6))
+    ids = []
+    for i, (retailer, price, old) in enumerate(offers, 1):
+        ids.append(run.register("R", str(i), {"title": "Nike Air Force 1 '07 Women's", "retailer": retailer, "price": f"${price}",
+                                              "extracted_price": price, "old_price": f"${old}" if old else None, "extracted_old_price": old,
+                                              "link": f"https://example.com/r{i}"}))
+    f = fake_finding("retail", n_kept=0)
+    f["kept_ids"], f["n_kept"] = ids, len(ids)
+    run.findings.append(f)
+    return run
+
+
+def test_ceiling_is_the_major_retailer_median_not_one_cheap_deal():
+    run = af1_retail_run([("Nike", 115.0, None), ("Foot Locker", 115.0, None), ("Dick's Sporting Goods", 110.0, None),
+                          ("Kohl's", 51.0, 115.0), ("eBay - sneakerplug", 70.0, None), ("Shoe Palace", 120.0, None)])
+    ref = research.retail_reference(run)
+    assert ref["price"] == 115.0 and ref["id"] is None  # median of Nike, Foot Locker, Dick's (Kohl's $51 is an outlier)
+    assert ref["outlier_ids"] == ["R4"] and set(ref["pool_ids"]) == {"R1", "R2", "R3"}
+    assert ref["basis"].startswith("median of 3 major retailers") and ref["resale_to_retail_ratio"] == round(93.0 / 115.0, 2)
+    assert ref["lowest_note"] == "One retailer, Kohl's, has it on sale for $51.00 (was $115.00) [R4]: a deal, not the ceiling."
+    assert research.ceiling_text(ref).startswith("$115.00 (median of 3 major retailers: Dick")
+    # a range above the $51 deal but under the robust ceiling doesn't warn
+    clean, check = research.validate_memo(run, memo_with(price_low=90, price_high=100), research.confidence_cap(run))
+    assert not any("ceiling" in w for w in check["warnings"])
+
+
+def test_ceiling_falls_back_to_all_offers_and_a_lone_offer_is_cited():
+    run = af1_retail_run([("Shoe Palace", 120.0, None), ("Hibbett", 110.0, None), ("SneakerShack", 40.0, None)])
+    ref = research.retail_reference(run)
+    assert ref["price"] == 115.0 and ref["outlier_ids"] == ["R3"] and ref["basis"].startswith("median of 2 retailers")
+    lone = research.retail_reference(af1_retail_run([("Best Buy", 249.95, None)]))
+    assert lone["id"] == "R1" and lone["price"] == 249.95 and lone["lowest_note"] is None
+    assert research.ceiling_text(lone) == "$249.95 at Best Buy [R1]"
+
+
+@pytest.mark.parametrize("query, expected", [
+    ("Nike Air Force 1 07 womens size 7", "Nike Air Force 1 07 womens"),
+    ("Nike Air Force 1 '07 sz 7.5 W", "Nike Air Force 1 '07"),
+    ("Apple AirPods Pro 2", "Apple AirPods Pro 2"),
+    ("iPhone 13 Pro 128GB", "iPhone 13 Pro 128GB"),
+])
+def test_retail_query_drops_shoe_sizes_only(query, expected):
+    assert research.retail_query(query) == expected
+
+
+def test_marketplace_sellers_on_a_big_store_are_not_the_store():
+    assert research.is_major_retailer("Walmart", "Nike Air Force 1")
+    assert not research.is_major_retailer("Walmart - Cellfeee", "Nike Air Force 1")
+    assert research.is_major_retailer("Nike", "Nike Air Force 1")
+    assert not research.is_major_retailer("Shoe Palace", "Nike Air Force 1")
+
+
+def test_ceiling_counts_each_retailer_once_at_its_lowest_price():
+    # one store's ten colorways don't outvote another store
+    offers = [("farfetch.com", 125.0, None)] * 5 + [("farfetch.com", 99.0, None)] * 3 + [("trendxparc.com", 90.0, None)]
+    ref = research.retail_reference(af1_retail_run(offers))
+    assert ref["price"] == 94.5 and len(ref["pool_ids"]) == 2 and ref["basis"].startswith("median of 2 retailers")
+
+
+def test_a_tag_before_its_price_is_checked_against_that_price():
+    run = run_with_sources(12)  # E1 = $81 ... E12 = $92
+    text = "listings like [E1] at $81 and [E5] at $85."
+    assert research.fix_stat_citations(text, run) == text  # both right: untouched, no stat label on $81
+    assert research.fix_stat_citations("like [E1] at $81 and [E9] at $85.", run) == "like [E1] at $81 and at $85."
+
+
+def test_a_basis_named_after_the_tag_is_not_labelled_twice():
+    run = af1_retail_run([("Nike", 115.0, None), ("Foot Locker", 115.0, None), ("Dick's Sporting Goods", 110.0, None)])
+    assert research.fix_stat_citations("below the retail ceiling of $115.00 [R3] (median of 3 major retailers).", run) == \
+        "below the retail ceiling of $115.00 (median of 3 major retailers)."
+    assert research.fix_stat_citations("below the retail ceiling of $115.00 [R3].", run).startswith(
+        "below the retail ceiling of $115.00 (median of 3 major retailers: Dick")
