@@ -512,3 +512,226 @@ def test_draft_description_gets_real_line_breaks():
     literal = "Intro.\\n- Condition: Good.\\n- Included: Case"  # backslash-n as two characters
     assert "\n" not in literal
     assert research.tidy_description(literal) == "Intro.\n- Condition: Good.\n- Included: Case"
+
+
+# --- Category-aware exclusions (Chanel "Single Flap" is not a single earbud) ---
+
+CHANEL = Item(product="Chanel Classic Flap", variant="medium, caviar, gold hardware", condition="used",
+              condition_detail="good condition, light corner wear", included="dust bag", search_query="Chanel Classic Flap medium caviar")
+
+
+def chanel_run():
+    return Run(item=CHANEL, assumptions=[], trace=Trace())
+
+
+def test_item_profile_picks_category_luxury_and_boutique_brand():
+    assert research.item_profile(ITEM) == {"category": "earbuds", "luxury": False, "boutique_brand": None}
+    assert research.item_profile(CHANEL) == {"category": "handbag", "luxury": True, "boutique_brand": "Chanel"}
+    phone = ITEM.model_copy(update={"product": "Apple iPhone 13 Pro", "search_query": "iPhone 13 Pro 128GB"})
+    assert research.item_profile(phone)["category"] == "phone"
+
+
+@pytest.mark.parametrize("title, reason", [
+    ("CHANEL Classic Single Flap Bag Medium Black Caviar GHW", None),  # a real bag, not an earbud
+    ("Chanel Classic Flap Medium Caviar Gold Hardware Style A01112", None),  # a style number
+    ("Chanel Classic Flap Inspired Quilted Bag", "not genuine"),
+    ("Quilted CC Style Flap Bag Black", "not genuine"),
+    ("Chanel look alike quilted flap", "not genuine"),
+    ("Classic Flap bag NOT AUTHENTIC dupe", "not genuine"),
+    ("Purse organizer insert for Chanel Classic Flap Medium", "accessory, not the bag"),
+    ("Chanel dust bag large", "dust bag / box only"),
+    ("Chanel Classic Flap Medium Caviar with dust bag and box", None),
+])
+def test_handbag_title_filter(title, reason):
+    # the seller's own "dust bag" is what's included, not the item: check against the product only
+    assert research.title_exclusion(title, f"{CHANEL.product} {CHANEL.variant}", category="handbag") == reason
+
+
+def test_single_still_means_one_earbud_for_earbuds():
+    assert research.title_exclusion("Single AirPods Pro 2 earbud", category="earbuds") == "single earbud / one side"
+    assert research.title_exclusion("Single AirPods Pro 2 earbud", category="handbag") is None
+
+
+@pytest.mark.parametrize("title, reason", [
+    ("Chanel Classic Flap Medium Black Caviar GHW", None),
+    ("Chanel Classic Medium/Large Flap Caviar Gold", None),  # M/L is the medium
+    ("Chanel Classic Flap Jumbo Black Caviar GHW", "different size: jumbo"),
+    ("Chanel Classic Flap Medium Lambskin Gold Hardware", "different leather: lambskin"),
+    ("Chanel Classic Flap Medium Caviar Silver Hardware", "different hardware: silver"),
+    ("Chanel Classic Flap Black Caviar", None),  # size not stated: left to the review
+])
+def test_bag_variant_check(title, reason):
+    assert research.bag_variant_exclusion(title, "Chanel Classic Flap medium, caviar, gold hardware") == reason
+
+
+def test_reviewer_reasons_are_kept_in_its_own_words():
+    assert research.review_reason("  Different style: Single Flap, not Double.  ") == "different style: Single Flap, not Double"
+    assert research.review_reason("") == "not the exact item"
+    assert len(research.review_reason("x" * 100)) <= 60
+
+
+# --- Luxury retail ---
+
+
+def test_luxury_resale_platforms_are_resale():
+    for source in ("Fashionphile", "The RealReal", "Rebag", "Vestiaire Collective", "Yoogi's Closet"):
+        assert market.retail_record({"source": source, "title": "Chanel Classic Flap"})["is_resale"], source
+
+
+def test_boutique_only_brand_has_no_retail_gap_and_says_not_sold_online(monkeypatch):
+    offers = [{"title": "Chanel Classic Flap Medium", "retailer": r, "is_resale": False, "link": f"https://s/{i}", "product_id": str(i),
+               "price": "$9,000", "extracted_price": 9000.0, "old_price": None, "extracted_old_price": None, "second_hand_condition": None}
+              for i, r in enumerate(["Madison Ave Luxe", "Some Boutique"])]
+    monkeypatch.setattr(market, "retail_search", lambda query, **kw: {"query": query, "items": offers})
+    run = chanel_run()
+    state = ResearcherState(run, brief("retail", ()), 1)
+    asyncio.run(research.do_search_retail(state, "Chanel Classic Flap"))
+    research.do_review(state, [])
+    run.findings.append(state.finding)
+    assert state.finding["n_kept"] == 0 and all("boutiques" in d["reason"] for d in state.dropped)
+    assert research.find_gaps(run.findings, CHANEL) == []
+    status = research.retail_status(run)
+    assert status["status"] == "boutique_only" and "discontinued" not in status["note"] and "boutiques" in status["note"]
+
+
+def test_retail_status_discontinued_vs_not_found():
+    run = new_run()
+    run.findings.append(fake_finding("retail", n_kept=0, only_resale=True))
+    assert research.retail_status(run)["status"] == "discontinued"
+    run = new_run()
+    run.findings.append(fake_finding("retail", n_kept=0))
+    assert research.retail_status(run)["status"] == "not_found"
+
+
+def test_luxury_memo_gets_the_authenticity_limitation_and_no_authenticity_assumption():
+    assert research.split_assumptions(["Color not given: comps include every color. Authenticity assumed genuine.", "Size: medium"]) == \
+        ["Color not given: comps include every color.", "Size: medium"]
+    run = chanel_run()
+    for i, price in enumerate([5000.0 + 100 * i for i in range(8)], 1):
+        run.register("E", str(i), {"title": f"Chanel {i}", "price": price, "shippingCost": 0.0, "totalPrice": price, "condition": "Pre-owned - Good",
+                                   "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": f"https://www.ebay.com/itm/{i}"})
+    run.findings.append(fake_finding(n_kept=8))
+    memo = Memo(price_low=5000, price_high=5400, headline="h", rationale="r.", key_factors=[], confidence="medium", confidence_reason="c",
+                limitations=["Asking prices are not sold prices.", "Listings may not be authentic."])
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["limitations"] == ["Asking prices are not sold prices.", research.AUTH_LIMITATION]
+
+
+# --- One funnel, one exclusion sentence ---
+
+
+def test_funnel_counts_each_listing_once_and_adds_up():
+    run = run_with_sources(10)
+    first = run.findings[0]
+    first["excluded"] = [{"id": "E90", "title": "x", "reason": "case only", "by": "code"},
+                         {"id": "E91", "title": "y", "reason": "different model: Pro 1", "by": "review"},
+                         {"id": "E92", "title": "z", "reason": "different model: Max", "by": "review"}]
+    again = fake_finding(n_kept=3, broadened=True)  # round 2 re-finds E1..E3 and re-excludes E90
+    again["excluded"] = [{"id": "E90", "title": "x", "reason": "case only", "by": "code"}]
+    run.findings.append(again)
+    f = research.comp_funnel(run)
+    assert (f["found"], f["after_title_filter"], f["kept"], f["excluded"]) == (13, 12, 10, 3)
+    assert f["found"] == f["kept"] + f["excluded"]
+    assert f["excluded_groups"] == [{"label": "different model", "n": 2, "details": ["1× Pro 1", "1× Max"]},
+                                    {"label": "case only", "n": 1, "details": []}]
+    assert research.exclusion_sentence(f) == "Excluded 3 of 13 listings: 2 different model and 1 case only."
+
+
+def test_writers_own_exclusion_counts_are_replaced_with_codes():
+    run = run_with_sources(10)
+    run.findings[0]["excluded"] = [{"id": "E90", "title": "x", "reason": "single earbud / one side", "by": "code"}]
+    memo = Memo(price_low=82, price_high=88, headline="h", confidence="high", confidence_reason="c",
+                rationale="Comps sit near $86 [E3]. Excluded 4 listings (3 single earbuds, 1 case only). Prices dropped 20% this month.",
+                key_factors=["3 single earbuds were removed", "Free shipping is common"], limitations=["Asking prices are not sold prices."])
+    clean, check = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["rationale"] == ("Comps sit near $86 [E3]. Prices dropped 20% this month. "
+                                  "Excluded 1 of 11 listings: 1 single earbud / one side.")
+    assert clean["key_factors"] == ["Free shipping is common"]
+    assert any("exclusion counts were replaced" in w for w in check["warnings"])
+
+
+def test_condition_row_names_its_subset_when_shipping_is_missing():
+    run = run_with_sources(10)
+    for sid in ("E1", "E2", "E3"):  # three comps with shipping not stated
+        run.sources[sid].update(shippingCost=None, totalPrice=None)
+    cm = research.comp_median(run)
+    assert (cm["basis"], cm["n"], cm["of"]) == ("price_with_shipping", 7, 10)
+    assert "across the 7 of 10 comps that list shipping" in cm["phrase"]
+    row = research.tier_rows(run)[0]
+    assert (row["n"], row["of"], row["median"]) == (7, 10, cm["median"])
+    assert [r["in_median"] for r in research.comp_rows(run)].count(False) == 3
+
+
+# --- Condition sub-grades ---
+
+
+@pytest.mark.parametrize("condition, grade", [
+    ("Pre-owned - Excellent", "Excellent"), ("Pre-owned - Good", "Good"), ("Pre-owned - Fair", "Fair"),
+    ("Pre-owned - Poor", "Poor"), ("Used", None), ("Pre-owned", None), ("Like New", "Excellent"),
+])
+def test_listing_grade(condition, grade):
+    assert research.listing_grade(condition) == grade
+
+
+@pytest.mark.parametrize("detail, grade", [
+    ("good, light scratches on case", "Good"), ("light scratches", "Good"), ("works fine, some wear", "Good"),
+    ("excellent, barely used", "Excellent"), ("very good", "Very Good"), ("heavy wear on corners", "Fair"), ("", None),
+])
+def test_seller_grade_from_their_words(detail, grade):
+    assert research.seller_grade(ITEM.model_copy(update={"condition_detail": detail})) == grade
+
+
+def test_weighted_median():
+    assert market.weighted_median([10, 20, 30], [1, 1, 1]) == 20
+    assert market.weighted_median([10, 20, 30, 100], [0.2, 0.2, 1, 1]) == 30
+    assert market.weighted_median([10, 20], [1, 1]) == 15
+    assert market.weighted_median([], []) is None
+
+
+def test_comps_are_weighted_toward_the_sellers_grade_and_both_medians_reported():
+    grades = ["Pre-owned - Excellent"] * 6 + ["Pre-owned - Good"] * 4 + ["Used"] * 2
+    prices = [120.0, 121, 122, 123, 124, 125, 90, 92, 94, 96, 110, 112]
+    run = run_with_sources(12, prices=prices)
+    for i, g in enumerate(grades, 1):
+        run.sources[f"E{i}"]["condition"] = g
+    g = research.grade_summary(run)  # seller: "good"
+    assert g["grade"] == "Good" and g["n_matching"] == 4 and g["n"] == 12
+    assert g["matching_median"] == 93.0 and g["used_median"] == 116.0 and g["differs"]
+    assert g["weighted_median"] < g["used_median"]
+    assert "Used median $116.00 across all 12 comps" in g["note"] and "Pre-owned - Good (your grade) ask a median $93.00" in g["note"]
+    assert research.anchor_median(run) == g["weighted_median"]
+    assert sum(r["grade_match"] for r in research.comp_rows(run)) == 4  # every comp still listed
+    memo = Memo(price_low=90, price_high=100, headline="h", rationale="r.", key_factors=["k"], confidence="high", confidence_reason="c", limitations=[])
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["key_factors"][0] == research.check_citations(g["note"], run.sources)[0] and clean["key_factors"][1] == "k"
+
+
+# --- Sealed new far below retail ---
+
+
+def test_new_listings_far_below_retail_become_a_key_factor():
+    run = run_with_sources(12)  # retail $249.95 at Best Buy [R1]
+    for i, price in enumerate([125.0, 130, 135, 140], 100):
+        run.register("E", str(i), {"title": f"new {i}", "price": price, "shippingCost": 0.0, "totalPrice": price, "condition": "New",
+                                   "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": f"https://www.ebay.com/itm/{i}"})
+    tiers = fake_finding("condition_tiers")
+    tiers["tier_ids"] = {"new": ["E13", "E14", "E15", "E16"]}
+    run.findings.append(tiers)
+    gap = research.new_vs_retail(run)
+    assert gap["median"] == 132.5 and gap["ratio"] == round(132.5 / 249.95, 2)
+    assert "47% below the $249.95 new price at Best Buy [R1]" in gap["sentence"]
+    memo = Memo(price_low=82, price_high=88, headline="h", rationale="r.", key_factors=["k"], confidence="high", confidence_reason="c", limitations=[])
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["key_factors"][0].startswith("Sealed new listings on eBay ask a median $132.50")
+    tiers["tier_ids"] = {"new": ["E13"]}  # too few new listings to say
+    assert research.new_vs_retail(run) is None
+
+
+# --- Retail titles ---
+
+
+def test_retail_title_names_the_model_when_the_store_leaves_it_out():
+    title, note = research.retail_title("Personalized AirPods Pro", "Apple AirPods Pro (2nd generation)")
+    assert title == "AirPods Pro" and "personalization option" in note and "doesn't state the model" in note
+    assert research.retail_title("Apple AirPods Pro 2 with USB-C", "Apple AirPods Pro (2nd generation)") == ("Apple AirPods Pro 2 with USB-C", "")
+    assert research.retail_title("Apple iPhone 13 Pro 128GB", "Apple iPhone 13 Pro")[1] == ""

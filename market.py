@@ -201,7 +201,10 @@ def ebay_search(
 
 # Google Shopping mixes resale listings in with retailers. They are not a retail price, so a
 # record from one of these is flagged, and the retail ceiling leaves it out.
-RESALE_SITES = ("ebay", "poshmark", "whatnot", "mercari", "offerup", "facebook", "swappa", "back market", "depop", "craigslist")
+RESALE_SITES = ("ebay", "poshmark", "whatnot", "mercari", "offerup", "facebook", "swappa", "back market", "depop", "craigslist",
+                # luxury resale: pre-owned (or gray-market) bags and watches, not a retail price
+                "fashionphile", "realreal", "rebag", "vestiaire", "yoogi", "tradesy", "madison avenue couture",
+                "luxury garage sale", "what goes around comes around", "1stdibs", "chrono24", "bob's watches", "watchbox")
 
 
 def retail_record(result: dict) -> dict:
@@ -271,6 +274,22 @@ def price_stats(prices: list[float]) -> dict:
         "mean_without_outliers": r(statistics.fmean(kept)),
         "outliers_removed": len(values) - len(kept),
     }
+
+
+def weighted_median(values: list[float], weights: list[float]) -> float | None:
+    """The value where the cumulative weight first reaches half the total (the lower weighted
+    median; the mean of the two middle values when it lands exactly on half)."""
+    pairs = sorted((float(v), float(w)) for v, w in zip(values, weights) if v is not None and w and w > 0)
+    if not pairs:
+        return None
+    half, run = sum(w for _, w in pairs) / 2, 0.0
+    for i, (v, w) in enumerate(pairs):
+        run += w
+        if abs(run - half) < 1e-9 and i + 1 < len(pairs):
+            return round((v + pairs[i + 1][0]) / 2, 2)
+        if run > half:
+            return round(v, 2)
+    return round(pairs[-1][0], 2)
 
 
 def comp_stats(records: list[dict]) -> dict:
