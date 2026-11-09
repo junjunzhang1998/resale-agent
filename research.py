@@ -687,6 +687,9 @@ Counts: comps.kept is the one comp count. Use it whenever you say how many comps
 statistic over fewer listings names its subset: comps.stats covers comps.stats_n listings, so when
 stats_n < kept write e.g. "median $85 across the 19 of 27 comps that list shipping". Don't quote
 condition_tiers counts as comps: they cover other conditions.
+Medians: the seller's condition has one median, comps.stats.median: quote that figure exactly,
+everywhere. condition_tiers covers only the other conditions; when you quote one, say it's from
+the broader condition search, e.g. "new listings ask a median $150 in the broader condition search".
 If excluded_summary shows special editions, collabs or custom colorways, say they were left out.
 
 Writing:
@@ -845,6 +848,13 @@ def writer_input(run: Run, cap: tuple[str, str]) -> str:
     # The exact comps go in once, merged across rounds: per-round counts are what made the Writer
     # quote 29 in one sentence and 44 in the next.
     findings = [{k: v for k, v in f.items() if k not in ("excluded", "kept_ids")} for f in run.findings if f["researcher"] != "exact_comps"]
+    # The seller's own condition has one set of figures: comps. The broader condition search's
+    # numbers for it (and its all-conditions stats) would give a second "used median".
+    for f in findings:
+        if f["researcher"] == "condition_tiers":
+            f.pop("stats", None)
+            f["stats_by_condition"] = {t: s for t, s in (f.get("stats_by_condition") or {}).items() if t != run.item.condition}
+            f["conditions"] = [t for t in f.get("conditions", []) if t != run.item.condition]
     return json.dumps({
         "comps": comp_summary(run),
         "item": run.item.model_dump(),
@@ -963,16 +973,22 @@ def spread(rows: list, k: int = TABLE_ROWS) -> list:
 
 
 def tier_rows(run: Run) -> list[dict]:
-    """Median price per condition from the condition_tiers researcher, best condition first. A tier
-    searched again in a later round keeps its first result."""
+    """Median price per condition, best condition first. The seller's own condition uses the exact
+    comps (the memo's canonical figures, source "exact_comps"); the other conditions come from the
+    broader condition search (source "condition_search"), where a tier searched again in a later
+    round keeps its first result."""
     rows = {}
+    if kept_comp_ids(run):
+        st = comp_basis(run)[1]
+        rows[run.item.condition] = {"condition": run.item.condition, "n": len(kept_comp_ids(run)), "median": st["median"],
+                                    "q1": st["q1"], "q3": st["q3"], "source": "exact_comps"}
     for f in run.findings:
         if f["researcher"] != "condition_tiers":
             continue
         for tier, s in (f.get("stats_by_condition") or {}).items():
             st = s["price_with_shipping"] if s["price_with_shipping"]["n"] else s["item_price"]
             if st["n"] and tier not in rows:
-                rows[tier] = {"condition": tier, "n": st["n"], "median": st["median"], "q1": st["q1"], "q3": st["q3"]}
+                rows[tier] = {"condition": tier, "n": st["n"], "median": st["median"], "q1": st["q1"], "q3": st["q3"], "source": "condition_search"}
     order = list(market.CONDITION_IDS)
     return sorted(rows.values(), key=lambda r: order.index(r["condition"]) if r["condition"] in order else len(order))
 
@@ -1185,8 +1201,11 @@ def listing_facts(memo: dict) -> dict:
 
 
 def tidy_description(text: str) -> str:
-    """Put each '- Label:' bullet on its own line: the model sometimes returns them run together."""
-    text = re.sub(r"\s+-\s+(?=[A-Z][\w ]{1,20}:)", "\n- ", (text or "").strip())
+    """Real line breaks, one '- Label:' bullet per line. The model sometimes writes newlines as a
+    literal backslash-n, or runs the bullets together."""
+    text = (text or "").replace("\\r\\n", "\n").replace("\\n", "\n").replace("\r\n", "\n").strip()
+    text = re.sub(r"[ \t]+-\s+(?=[A-Z][\w ]{1,20}:)", "\n- ", text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
     return re.sub(r"\n{3,}", "\n\n", text)
 
 

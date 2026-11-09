@@ -6,296 +6,266 @@
 <title>Rummage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --paper: #e8d9bd; --paper-dot: rgba(120, 90, 50, .07);
-  --cream: #fbf6ea; --cream-2: #f3ead6; --manila: #f4e2b0; --manila-edge: #d9c07e;
-  --ink: #2b2620; --muted: #6a5f50; --line: #ddd0b6; --line-strong: #c9b896;
-  --mustard: #d9a62e; --mustard-ink: #7d5a0c; --mustard-soft: #f6e4ae;
-  --olive: #6b7a3a; --olive-ink: #4c5a22; --olive-soft: #e2e6c8;
-  --rust: #b5532a; --rust-ink: #963f1b; --rust-soft: #f4d9c9;
-  --denim: #3f6e7a; --denim-soft: #d5e4e6; --plum: #7a4a6b; --plum-soft: #ecdbe5;
-  --chart-bar: #b9b38c; --band: rgba(217, 166, 46, .32);
-  --shadow: 0 1px 0 rgba(0,0,0,.04), 0 6px 16px rgba(70, 50, 20, .12);
-  --hand: "Permanent Marker", "Segoe Print", "Bradley Hand", cursive;
-  --type: "Courier Prime", "Courier New", ui-monospace, monospace;
-  --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg: #FAFAF7; --surface: #FFFFFF; --surface-2: #F3F3EF; --ink: #111111; --ink-2: #3A3A37; --muted: #6B6B66;
+  --line: #E7E6E0; --line-strong: #D5D4CD;
+  --accent: #D93A23; --accent-text: #FFFFFF; --accent-soft: rgba(217, 58, 35, .09); --accent-line: rgba(217, 58, 35, .55);
+  --dot: #9C9B94; --bar: #D9D8D1; --bar-you: #111111;
+  --shadow: 0 1px 2px rgba(17,17,17,.04), 0 4px 14px rgba(17,17,17,.05);
+  --tag-shadow: drop-shadow(0 0 .6px rgba(17,17,17,.45)) drop-shadow(0 6px 14px rgba(17,17,17,.08));
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display: "Space Grotesk", "Inter", system-ui, sans-serif;
   color-scheme: light;
 }
-/* Dark: a chalkboard. Same accents, lifted for contrast. The hang tag stays manila. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #1e2925; --paper-dot: rgba(255, 255, 255, .025);
-    --cream: #26332e; --cream-2: #2d3b35; --ink: #ece6d6; --muted: #b6ae9c; --line: #3a4943; --line-strong: #4b5c55;
-    --mustard: #e7b84a; --mustard-ink: #f0c869; --mustard-soft: #4a3f22;
-    --olive: #a9b86a; --olive-ink: #c2d084; --olive-soft: #36422a;
-    --rust: #e0805a; --rust-ink: #f09a77; --rust-soft: #4a2e24;
-    --denim: #8ab8c4; --denim-soft: #263f45; --plum: #d39cc0; --plum-soft: #45303f;
-    --chart-bar: #5f6d57; --band: rgba(231, 184, 74, .25);
-    --shadow: 0 6px 18px rgba(0, 0, 0, .35); color-scheme: dark;
+    --bg: #111111; --surface: #1A1A1A; --surface-2: #222221; --ink: #F2F2EE; --ink-2: #D2D2CC; --muted: #9D9D97;
+    --line: #2A2A28; --line-strong: #3A3A37;
+    --accent: #F2553C; --accent-text: #111111; --accent-soft: rgba(242, 85, 60, .14); --accent-line: rgba(242, 85, 60, .6);
+    --dot: #77766F; --bar: #3A3A37; --bar-you: #F2F2EE;
+    --shadow: 0 1px 2px rgba(0,0,0,.4); --tag-shadow: drop-shadow(0 0 .6px rgba(255,255,255,.35)) drop-shadow(0 6px 16px rgba(0,0,0,.5));
+    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #1e2925; --paper-dot: rgba(255, 255, 255, .025);
-  --cream: #26332e; --cream-2: #2d3b35; --ink: #ece6d6; --muted: #b6ae9c; --line: #3a4943; --line-strong: #4b5c55;
-  --mustard: #e7b84a; --mustard-ink: #f0c869; --mustard-soft: #4a3f22;
-  --olive: #a9b86a; --olive-ink: #c2d084; --olive-soft: #36422a;
-  --rust: #e0805a; --rust-ink: #f09a77; --rust-soft: #4a2e24;
-  --denim: #8ab8c4; --denim-soft: #263f45; --plum: #d39cc0; --plum-soft: #45303f;
-  --chart-bar: #5f6d57; --band: rgba(231, 184, 74, .25);
-  --shadow: 0 6px 18px rgba(0, 0, 0, .35); color-scheme: dark;
+  --bg: #111111; --surface: #1A1A1A; --surface-2: #222221; --ink: #F2F2EE; --ink-2: #D2D2CC; --muted: #9D9D97;
+  --line: #2A2A28; --line-strong: #3A3A37;
+  --accent: #F2553C; --accent-text: #111111; --accent-soft: rgba(242, 85, 60, .14); --accent-line: rgba(242, 85, 60, .6);
+  --dot: #77766F; --bar: #3A3A37; --bar-you: #F2F2EE;
+  --shadow: 0 1px 2px rgba(0,0,0,.4); --tag-shadow: drop-shadow(0 0 .6px rgba(255,255,255,.35)) drop-shadow(0 6px 16px rgba(0,0,0,.5));
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body {
-  background-color: var(--paper);
-  background-image: radial-gradient(var(--paper-dot) 1px, transparent 1.5px), radial-gradient(var(--paper-dot) 1px, transparent 1.5px);
-  background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 5px;
-  color: var(--ink); font: 15.5px/1.55 var(--body);
-  min-height: 100vh; display: flex; flex-direction: column;
-}
-a { color: var(--rust-ink); }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); min-height: 100vh; display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
+a { color: var(--ink); text-underline-offset: 2px; }
 button { font: inherit; cursor: pointer; color: inherit; }
-:focus-visible { outline: 2.5px solid var(--rust); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.num, .tabular { font-variant-numeric: tabular-nums; }
 
 /* Header */
-header { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 2px dashed var(--line-strong); }
-.bar { max-width: 900px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
-.logo { display: inline-block; font-family: var(--hand); font-size: 28px; line-height: 1.1; color: var(--rust-ink); transform: rotate(-3deg); transform-origin: left bottom; margin: 0 0 4px; letter-spacing: .5px; }
-.logo .dot { color: var(--mustard); }
-.tagline { font-family: var(--type); font-size: 13px; color: var(--muted); }
-.grow { flex: 1; min-width: 0; }
-.btn {
-  font-family: var(--type); font-size: 13px; font-weight: 700; background: var(--cream); color: var(--ink);
-  border: 1.5px solid var(--ink); border-radius: 6px; padding: 6px 11px; box-shadow: 2px 2px 0 var(--ink); white-space: nowrap;
-}
-.btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
-.btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
-.btn.primary { background: var(--mustard); color: #2b2620; }
-.btn:disabled { opacity: .55; cursor: default; transform: none; }
+header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.topbar { max-width: 880px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+.logo { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -.03em; margin: 0; line-height: 1; }
+.logo i { font-style: normal; color: var(--accent); }
+.tagline { color: var(--muted); font-size: 13px; margin-left: 4px; }
+.grow { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.btn { font-size: 13.5px; font-weight: 600; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 999px; padding: 7px 14px; white-space: nowrap; transition: border-color .15s, background .15s; }
+.btn:hover { border-color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.primary:hover { filter: brightness(.95); }
+.btn.dark { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.btn:disabled { opacity: .5; cursor: default; }
 
-main { flex: 1; width: 100%; max-width: 900px; margin: 0 auto; padding: 18px 16px 8px; }
-#log { display: flex; flex-direction: column; gap: 18px; }
-.msg.user { align-self: flex-end; max-width: 80%; }
+main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 24px 16px 8px; }
+#log { display: flex; flex-direction: column; gap: 20px; }
+.msg.user { align-self: flex-end; max-width: 78%; }
 .msg.bot { align-self: stretch; min-width: 0; }
+.bubble-user { background: var(--ink); color: var(--bg); padding: 10px 15px; border-radius: 18px 18px 4px 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble { background: var(--surface); border: 1px solid var(--line); border-radius: 18px 18px 18px 4px; padding: 12px 16px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 620px; width: fit-content; }
+.bubble.error { border-color: var(--accent-line); background: var(--accent-soft); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
 
-/* User message: a handwritten note on a sticky */
-.note-user {
-  background: var(--mustard-soft); color: var(--ink); padding: 10px 14px; border-radius: 3px; box-shadow: var(--shadow);
-  transform: rotate(.6deg); white-space: pre-wrap; overflow-wrap: anywhere; border-left: 4px solid var(--mustard);
-}
-/* Agent text: an index card */
-.card-text {
-  background: var(--cream); border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow); padding: 12px 16px;
-  white-space: pre-wrap; overflow-wrap: anywhere; max-width: 640px; width: fit-content;
-  background-image: linear-gradient(transparent 0 27px, var(--line) 27px 28px); background-size: 100% 28px; background-position: 0 6px; line-height: 28px;
-}
-.card-text.error { border-color: var(--rust); background: var(--rust-soft); background-image: none; line-height: 1.5; }
-
-/* Intro: an index card pinned to the board */
-.intro { position: relative; background: var(--cream); border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow); padding: 22px 20px 18px; transform: rotate(-.4deg); }
-.intro::before { content: ""; position: absolute; top: -9px; left: 50%; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #f09a77, var(--rust) 60%, #6e2a10); box-shadow: 0 2px 3px rgba(0,0,0,.3); }
-.intro h2 { font-family: var(--hand); font-weight: 400; font-size: 24px; margin: 0 0 8px; color: var(--rust-ink); }
-.intro p { margin: 0 0 10px; }
-.intro ol { margin: 0 0 10px; padding-left: 22px; }
+/* Intro + how it works */
+.intro { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+.intro h2 { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: -.02em; line-height: 1.15; margin: 0 0 10px; }
+.intro p { margin: 0 0 12px; color: var(--ink-2); }
+.intro ol { margin: 0 0 14px; padding-left: 20px; color: var(--ink-2); }
 .intro li { margin: 4px 0; }
-.intro .fine { font-family: var(--type); font-size: 13px; color: var(--muted); }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-.chip { font-family: var(--type); font-size: 13px; text-align: left; background: var(--cream-2); border: 1.5px dashed var(--line-strong); border-radius: 6px; padding: 6px 10px; }
-.chip:hover { border-color: var(--rust); border-style: solid; }
+.intro li::marker { color: var(--muted); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 13.5px; text-align: left; background: var(--surface-2); border: 1px solid transparent; border-radius: 999px; padding: 7px 13px; }
+.chip:hover { border-color: var(--line-strong); background: var(--surface); }
+.how { margin-top: 14px; }
+.how .label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.steps { display: grid; grid-template-columns: 1fr auto 1.25fr auto 1fr; gap: 10px; align-items: stretch; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.step .n { font-family: var(--display); font-weight: 700; font-size: 13px; color: var(--muted); }
+.step h4 { margin: 2px 0 4px; font-size: 15px; }
+.step p { margin: 0; font-size: 13px; color: var(--muted); }
+.step .trio { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.step .trio span { font-size: 11.5px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 8px; color: var(--ink-2); }
+.arrow { align-self: center; color: var(--muted); font-size: 18px; }
 
 /* Loading */
-.loading { display: flex; align-items: center; gap: 12px; font-family: var(--type); background: var(--cream); border: 1px solid var(--line); border-radius: 4px; padding: 12px 16px; box-shadow: var(--shadow); max-width: 640px; }
-.loading .stage { font-weight: 700; }
-.loading .sub { color: var(--muted); font-size: 13px; }
-.spin { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 3px dotted var(--rust); animation: spin 1.6s linear infinite; }
+.loading { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; max-width: 620px; }
+.loading .stage { font-weight: 600; }
+.spin { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Stickers */
-.sticker { display: inline-flex; align-items: center; gap: 5px; font-family: var(--type); font-weight: 700; font-size: 12.5px; line-height: 1.2;
-  padding: 4px 9px; border-radius: 999px; border: 1.5px solid currentColor; background: var(--cream); box-shadow: 1px 1.5px 0 rgba(0,0,0,.18); white-space: nowrap; }
-.sticker.low { color: var(--rust-ink); background: var(--rust-soft); }
-.sticker.medium { color: var(--mustard-ink); background: var(--mustard-soft); }
-.sticker.high { color: var(--olive-ink); background: var(--olive-soft); }
-.stickers { display: flex; flex-wrap: wrap; gap: 7px; }
-.stickers .sticker { font-weight: 400; color: var(--ink); border-color: var(--line-strong); background: var(--cream-2); white-space: normal; }
-.stickers .sticker:nth-child(3n+1) { transform: rotate(-1.2deg); }
-.stickers .sticker:nth-child(3n+2) { transform: rotate(.9deg); }
-.stickers .sticker b { color: var(--rust-ink); }
+/* Pills */
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; line-height: 1; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); white-space: nowrap; }
+.pill .lvl { display: inline-flex; gap: 2px; }
+.pill .lvl b { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); }
+.pill .lvl b.on { background: var(--ink); }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills .pill { font-weight: 500; white-space: normal; line-height: 1.3; }
+.pills .pill b { font-weight: 700; }
 
-/* Hang tag */
-.tagwrap { position: relative; padding: 20px 0 6px 34px; }
-.string { position: absolute; left: 0; top: 0; width: 80px; height: 70px; overflow: visible; pointer-events: none; }
-.tag {
-  position: relative; background: var(--manila); color: #2b2620; border: 1.5px solid var(--manila-edge);
-  clip-path: polygon(34px 0, 100% 0, 100% 100%, 34px 100%, 0 calc(100% - 34px), 0 34px);
-  padding: 18px 20px 18px 62px; transform: rotate(-1.6deg); transform-origin: left center; filter: drop-shadow(0 6px 10px rgba(70,50,20,.22));
-  max-width: 560px;
-}
-.tag::before { content: ""; position: absolute; left: 20px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%;
-  background: var(--paper); box-shadow: inset 0 0 0 3px #e9d39a, inset 0 0 0 4px var(--manila-edge); }
-.tag .eyebrow { font-family: var(--type); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #6a5a33; }
-.tag .price { font-family: var(--hand); font-size: 46px; line-height: 1.1; color: #8f3214; margin: 2px 0 4px; font-variant-numeric: tabular-nums; }
-.tag .item { font-family: var(--type); font-size: 13.5px; color: #4a3f2a; }
-.tag .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
-.tag .sticker { background: #fbf3dc; }
-.tag .sticker.low { color: #8f3214; background: #f6dccd; }
-.tag .sticker.medium { color: #6b4c08; background: #f8e7b5; }
-.tag .sticker.high { color: #3f4c1a; background: #e3e8c6; }
-.tag .btn { background: #fbf3dc; color: #2b2620; border-color: #2b2620; box-shadow: 2px 2px 0 #2b2620; }
-.tag .btn.primary { background: var(--mustard); }
-.disclaimer { font-family: var(--type); font-size: 12.5px; color: var(--muted); margin: 10px 0 0 34px; }
+/* Hang tag: the one playful element */
+.tagwrap { display: flex; }
+.tag { position: relative; background: var(--surface); filter: var(--tag-shadow);
+  clip-path: polygon(30px 0, 100% 0, 100% 100%, 30px 100%, 0 calc(100% - 30px), 0 30px);
+  padding: 20px 24px 20px 58px; max-width: 580px; width: 100%; }
+.tag::before { content: ""; position: absolute; left: 18px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.tag .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.tag .price { font-family: var(--display); font-weight: 700; font-size: 48px; letter-spacing: -.035em; line-height: 1.05; color: var(--accent); margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
+.tag .item { color: var(--ink-2); font-size: 14px; }
+.tag .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.disclaimer { font-size: 12.5px; color: var(--muted); margin: 10px 0 0 2px; }
 
-/* Trace summary strip: a receipt line */
-.strip-link { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; width: 100%; margin: 14px 0 0; text-align: left;
-  font-family: var(--type); font-size: 13.5px; background: var(--cream); border: 1.5px dashed var(--line-strong); border-radius: 4px; padding: 8px 12px; }
-.strip-link:hover { border-color: var(--rust); border-style: solid; }
-.strip-link .go { margin-left: auto; color: var(--rust-ink); font-weight: 700; white-space: nowrap; }
+/* Trace summary strip */
+.strip-link { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; width: 100%; margin-top: 14px; text-align: left; font-size: 13.5px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.strip-link:hover { border-color: var(--ink); }
+.strip-link .sep { color: var(--line-strong); }
+.strip-link .go { margin-left: auto; font-weight: 600; white-space: nowrap; }
 
-/* Receipt */
-.receipt { position: relative; background: var(--cream); margin-top: 16px; padding: 18px 20px 26px; box-shadow: var(--shadow); border-radius: 3px 3px 0 0; }
-.receipt::after { content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
-  background: linear-gradient(-45deg, transparent 7px, var(--cream) 0) 0 0 / 14px 10px repeat-x, linear-gradient(45deg, transparent 7px, var(--cream) 0) 0 0 / 14px 10px repeat-x; }
-.receipt h3, .section-title { font-family: var(--type); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
-.headline { font-size: 17px; font-weight: 650; margin: 0 0 10px; }
-.receipt p { margin: 0 0 10px; }
-.receipt ul { margin: 0 0 4px; padding-left: 20px; }
-.receipt li { margin: 4px 0; }
-.rule { border: 0; border-top: 2px dashed var(--line-strong); margin: 14px 0; }
-.confline { font-family: var(--type); font-size: 13.5px; color: var(--muted); }
-.assumed { font-family: var(--type); font-size: 13px; background: var(--mustard-soft); border-left: 4px solid var(--mustard); padding: 7px 10px; margin-top: 12px; }
+/* Memo body */
+.memo-body { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; margin-top: 14px; }
+.memo-body h3, .section-title { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.headline { font-size: 18px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; margin: 0 0 10px; }
+.memo-body p { margin: 0 0 10px; color: var(--ink-2); }
+.memo-body ul { margin: 0; padding-left: 18px; color: var(--ink-2); }
+.memo-body li { margin: 5px 0; }
+.divider { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+.confline { font-size: 13.5px; color: var(--muted); }
+.assumed { font-size: 13.5px; background: var(--surface-2); border-radius: 10px; padding: 8px 12px; margin-top: 12px; color: var(--ink-2); }
 .cites { white-space: nowrap; }
-a.cite { display: inline-block; font-family: var(--type); font-size: 11.5px; font-weight: 700; line-height: 1; padding: 2px 5px; border-radius: 3px;
-  background: var(--olive-soft); color: var(--olive-ink); border: 1px solid var(--olive); text-decoration: none; vertical-align: 1px; }
-a.cite:hover { background: var(--olive); color: var(--cream); }
-.cites .sep { color: var(--muted); font-size: 11px; padding: 0 2px; }
+a.cite { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1; padding: 3px 6px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-strong);
+  text-decoration: none; vertical-align: 1px; font-variant-numeric: tabular-nums; }
+a.cite:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.cites .sep { color: var(--muted); font-size: 11px; padding: 0 1px; }
 
-/* Draft listing */
-.draft { margin-top: 16px; background: var(--cream-2); border: 1.5px solid var(--line-strong); border-radius: 4px; padding: 14px 16px; }
+/* Draft */
+.draft { margin-top: 16px; border: 1px solid var(--line-strong); border-radius: 12px; padding: 16px; }
 .draft .dtitle { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
-.draft .count { font-family: var(--type); font-size: 12px; color: var(--muted); }
-.draft pre { font-family: var(--type); font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--cream); border: 1px solid var(--line); padding: 10px 12px; border-radius: 3px; margin: 8px 0; }
+.draft .desc { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin: 10px 0; font-size: 14px; color: var(--ink-2); }
 .draft .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
-/* Collapsible sections */
-details.fold { background: var(--cream); border: 1px solid var(--line); border-radius: 4px; margin-top: 12px; box-shadow: var(--shadow); }
-details.fold > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+/* Folded sections */
+details.fold { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-top: 10px; }
+details.fold > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 details.fold > summary::-webkit-details-marker { display: none; }
-details.fold > summary::before { content: "+"; font-family: var(--type); font-weight: 700; color: var(--rust-ink); width: 12px; }
-details.fold[open] > summary::before { content: "–"; }
-details.fold > summary .section-title { margin: 0; }
-details.fold > summary .peek { font-family: var(--type); font-size: 13px; color: var(--muted); }
-.foldbody { padding: 0 16px 16px; }
+details.fold > summary .section-title { margin: 0; color: var(--ink); }
+details.fold > summary .peek { font-size: 13px; color: var(--muted); }
+details.fold > summary::after { content: "+"; margin-left: auto; color: var(--muted); font-size: 18px; line-height: 1; }
+details.fold[open] > summary::after { content: "−"; }
+.foldbody { padding: 0 18px 18px; }
 
-.funnel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 12px; }
-.funnel div { font-family: var(--type); background: var(--cream-2); border: 1px dashed var(--line-strong); border-radius: 4px; padding: 8px 10px; }
-.funnel b { display: block; font-size: 22px; }
+.funnel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 14px; }
+.funnel div { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+.funnel b { display: block; font-family: var(--display); font-size: 22px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .funnel span { font-size: 12px; color: var(--muted); }
 .chart { width: 100%; height: auto; display: block; overflow: visible; }
-.chart text { font-family: var(--type); font-size: 12px; fill: var(--muted); }
-.chart .lbl { fill: var(--ink); }
-.chart .you { fill: var(--rust-ink); font-weight: 700; }
-.legend { font-family: var(--type); font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+.chart text { font-family: var(--sans); font-size: 11.5px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart .lbl { fill: var(--ink-2); }
+.chart .you { fill: var(--ink); font-weight: 700; }
+.chart .acc { fill: var(--accent); font-weight: 600; }
+.legend { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
 
-.tablewrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+.tablewrap { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-th, td { text-align: left; padding: 7px 8px; border-bottom: 1px dashed var(--line-strong); vertical-align: middle; }
-th { font-family: var(--type); color: var(--muted); font-weight: 700; font-size: 12px; white-space: nowrap; }
-td.num, th.num { text-align: right; font-family: var(--type); white-space: nowrap; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
+td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 td.title { min-width: 160px; }
-td.title a { color: var(--ink); text-decoration: none; }
-td.title a:hover { color: var(--rust-ink); text-decoration: underline; }
-.thumb { width: 46px; height: 46px; border-radius: 3px; object-fit: cover; display: block; background: var(--cream-2); border: 1px solid var(--line); }
-.mini { font-family: var(--type); font-size: 11px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 3px; padding: 0 4px; margin-left: 4px; white-space: nowrap; }
-.ratio { margin-bottom: 10px; }
+td.title a { text-decoration: none; }
+td.title a:hover { text-decoration: underline; }
+.thumb { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; display: block; background: var(--surface-2); }
+.mini { font-size: 11px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 6px; margin-left: 4px; white-space: nowrap; }
 .srclist { margin: 0; padding: 0; list-style: none; font-size: 13.5px; }
-.srclist li { padding: 6px 0; border-bottom: 1px dashed var(--line-strong); overflow-wrap: anywhere; }
-.meta { font-family: var(--type); font-size: 12.5px; color: var(--muted); }
-.warn { font-family: var(--type); font-size: 13px; background: var(--rust-soft); border-left: 4px solid var(--rust); padding: 7px 10px; margin-bottom: 10px; }
+.srclist li { padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.warn { font-size: 13px; background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
 
 /* Trace card */
-details.trace { margin-top: 16px; background: var(--cream); border: 2px solid var(--ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--line-strong); scroll-margin-top: 80px; }
-details.trace > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 2px solid transparent; }
-details.trace[open] > summary { border-bottom-color: var(--ink); }
+details.trace { margin-top: 14px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; scroll-margin-top: 80px; }
+details.trace > summary { list-style: none; cursor: pointer; padding: 16px 18px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 details.trace > summary::-webkit-details-marker { display: none; }
-details.trace > summary h3 { font-family: var(--hand); font-weight: 400; font-size: 21px; margin: 0; color: var(--rust-ink); }
-details.trace > summary .peek { font-family: var(--type); font-size: 13px; color: var(--muted); }
-details.trace > summary .chev { margin-left: auto; font-family: var(--type); font-weight: 700; color: var(--rust-ink); }
-.tracebody { padding: 14px 16px 16px; }
-.trace-note { font-family: var(--type); font-size: 13px; background: var(--mustard-soft); border-left: 4px solid var(--mustard); padding: 7px 10px; margin-bottom: 14px; }
-.group { margin-bottom: 14px; }
+details.trace > summary h3 { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -.02em; margin: 0; }
+details.trace > summary .peek { font-size: 13px; color: var(--muted); }
+details.trace > summary .chev { margin-left: auto; font-size: 13px; font-weight: 600; }
+details.trace[open] > summary { border-bottom: 1px solid var(--line); }
+.tracebody { padding: 14px 18px 18px; }
+.trace-note { font-size: 13.5px; background: var(--surface-2); border-radius: 10px; padding: 9px 12px; margin-bottom: 16px; color: var(--ink-2); }
+.group { margin-bottom: 16px; }
 .group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-.agent { font-family: var(--type); font-weight: 700; font-size: 12.5px; padding: 3px 9px; border-radius: 3px; border: 1.5px solid currentColor; }
-.agent.lead { color: var(--rust-ink); background: var(--rust-soft); }
-.agent.exact_comps { color: var(--olive-ink); background: var(--olive-soft); }
-.agent.condition_tiers { color: var(--denim); background: var(--denim-soft); }
-.agent.retail { color: var(--mustard-ink); background: var(--mustard-soft); }
-.agent.writer { color: var(--plum); background: var(--plum-soft); }
-.entry { border-left: 3px solid var(--line-strong); margin: 0 0 6px 6px; padding: 3px 0 3px 10px; font-size: 13.5px; }
-.entry.tool { border-left-color: var(--olive); }
-.entry .name { font-family: var(--type); font-weight: 700; }
-.kind { font-family: var(--type); font-size: 11px; font-weight: 700; border-radius: 3px; padding: 1px 6px; margin-left: 6px; text-transform: uppercase; letter-spacing: .05em; }
-.kind.tool { background: var(--olive); color: var(--cream); }
-.kind.step { background: transparent; color: var(--muted); border: 1px solid var(--line-strong); }
+.agent { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface-2); }
+.agent .sym { font-size: 10px; color: var(--muted); }
+.entry { margin: 0 0 4px 12px; padding: 5px 0 5px 12px; border-left: 2px solid var(--line); font-size: 13.5px; }
+.entry.tool { border-left-color: var(--ink); }
+.entry .name { font-weight: 600; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; }
+.kind { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 7px; margin-left: 8px; text-transform: uppercase; letter-spacing: .05em; vertical-align: 1px; }
+.kind.tool { background: var(--ink); color: var(--bg); }
+.kind.step { color: var(--muted); border: 1px solid var(--line-strong); }
 .entry details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-.entry pre { font-family: var(--type); font-size: 12px; background: var(--cream-2); border: 1px solid var(--line); border-radius: 3px; padding: 8px; max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0; }
-.mini-trace { margin-top: 8px; font-family: var(--type); font-size: 12.5px; color: var(--muted); }
+.entry pre { font: 12px/1.45 ui-monospace, "SF Mono", Consolas, monospace; background: var(--surface-2); border-radius: 8px; padding: 10px; max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; }
+.mini-trace { margin-top: 8px; font-size: 12.5px; color: var(--muted); }
 
 /* Replay */
-.replay { background: var(--cream); border: 2px solid var(--ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--line-strong); padding: 14px 16px; }
+.replay { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; padding: 16px 18px; }
 .replay-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
-.replay-head h3 { font-family: var(--hand); font-weight: 400; font-size: 20px; margin: 0; color: var(--rust-ink); }
-.replay-head a { margin-left: auto; font-family: var(--type); font-size: 13px; }
-.rcard { font-family: var(--type); font-size: 13px; background: var(--cream-2); border: 1.5px solid var(--line-strong); border-radius: 4px; padding: 9px 11px;
-  opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
+.replay-head h3 { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -.02em; margin: 0; }
+.replay-head a { margin-left: auto; font-size: 13px; font-weight: 600; }
+.rcard { font-size: 13.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; opacity: 0; transform: translateY(6px); transition: opacity .3s, transform .3s; }
 .rcard.on { opacity: 1; transform: none; }
-.rcard .agent { display: inline-block; margin-bottom: 5px; }
-.rcard .q { color: var(--muted); overflow-wrap: anywhere; }
-.rcard .n { font-size: 15px; font-weight: 700; margin-top: 4px; }
-.rcard .meter { height: 6px; background: var(--line); border-radius: 3px; margin-top: 6px; overflow: hidden; }
-.rcard .meter i { display: block; height: 100%; width: 0; background: var(--olive); transition: width .8s ease-out; }
+.rcard .agent { margin-bottom: 6px; }
+.rcard .q { color: var(--muted); overflow-wrap: anywhere; font-size: 13px; }
+.rcard .n { font-weight: 600; margin-top: 6px; }
+.rcard .n .k { font-family: var(--display); font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.meter { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--ink); transition: width .8s ease-out; }
 .rgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
-.rarrow { text-align: center; font-family: var(--type); color: var(--muted); font-size: 12px; opacity: 0; transition: opacity .3s; }
+.rarrow { text-align: center; color: var(--muted); font-size: 12px; opacity: 0; transition: opacity .3s; }
 .rarrow.on { opacity: 1; }
 
 /* Composer */
-footer { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--paper) 35%); padding-top: 14px; }
-form { max-width: 900px; margin: 0 auto; padding: 0 16px 14px; display: flex; gap: 8px; }
-textarea { flex: 1; min-width: 0; resize: none; font: inherit; color: var(--ink); background: var(--cream); border: 1.5px solid var(--ink); border-radius: 6px;
-  padding: 10px 12px; min-height: 46px; max-height: 160px; box-shadow: 2px 2px 0 var(--ink); }
+footer { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg) 40%); padding-top: 16px; }
+form { max-width: 880px; margin: 0 auto; padding: 0 16px 16px; display: flex; gap: 8px; align-items: flex-end; }
+textarea { flex: 1; min-width: 0; resize: none; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 22px;
+  padding: 11px 16px; min-height: 46px; max-height: 160px; box-shadow: var(--shadow); }
+textarea:focus { outline: none; border-color: var(--ink); }
 textarea::placeholder { color: var(--muted); }
-form .btn { padding: 0 18px; font-size: 15px; }
+form .btn { height: 46px; padding: 0 20px; font-size: 15px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .spin { animation-duration: 4s; }
-  .rcard, .rarrow, .rcard .meter i { transition: none; }
+  .spin { animation-duration: 3s; }
+  .rcard, .rarrow, .meter i { transition: none; }
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .tagline { display: none; }
-  .logo { font-size: 24px; }
-  .tagwrap { padding-left: 22px; }
-  .tag { padding: 16px 14px 16px 54px; }
-  .tag .price { font-size: 38px; }
-  .disclaimer { margin-left: 22px; }
-  .receipt { padding: 16px 14px 24px; }
+  .intro { padding: 18px; }
+  .intro h2 { font-size: 22px; }
+  .steps { grid-template-columns: 1fr; }
+  .arrow { transform: rotate(90deg); justify-self: center; line-height: 1; }
+  .tag { padding: 18px 16px 18px 50px; }
+  .tag .price { font-size: 40px; }
+  .memo-body { padding: 16px; }
   .rgrid { grid-template-columns: 1fr; }
   .hide-sm { display: none; }
   .funnel b { font-size: 18px; }
-  .msg.user { max-width: 90%; }
-  .strip-link .go { margin-left: 0; }
+  .msg.user { max-width: 88%; }
+  .strip-link .go { margin-left: 0; flex-basis: 100%; }
+  .strip-link .sep { display: none; }
+  .strip-link > span:not(.go):not(.sep):not(:first-child)::before { content: "· "; color: var(--muted); }
+  .foldbody { padding: 0 14px 14px; }
+  details.fold > summary { padding: 14px; }
+  .tablewrap { margin: 0 -14px; padding: 0 14px; }
 }
 </style>
 </head>
 <body>
 <header>
-  <div class="bar">
+  <div class="topbar">
     <div class="grow">
-      <p class="logo">Rummage<span class="dot">.</span></p>
-      <div class="tagline">fair asking prices for secondhand finds</div>
+      <p class="logo">Rummage<i>.</i></p>
+      <span class="tagline">Fair asking prices for secondhand finds</span>
     </div>
     <button class="btn" id="theme" type="button" aria-label="Switch light or dark theme">Theme</button>
     <button class="btn" id="reset" type="button">New item</button>
@@ -309,7 +279,7 @@ form .btn { padding: 0 18px; font-size: 15px; }
 <footer>
   <form id="form">
     <label class="sr" for="input">Describe your item</label>
-    <textarea id="input" rows="1" placeholder="Describe the item and its condition"></textarea>
+    <textarea id="input" rows="1" placeholder="Your item and its condition"></textarea>
     <button class="btn primary" id="send" type="submit">Price it</button>
   </form>
 </footer>
@@ -328,11 +298,11 @@ const EXAMPLES = [
   "I want to sell my iPhone",
 ];
 const AGENTS = {
-  lead: { label: "Lead", cls: "lead" },
-  "researcher:exact_comps": { label: "Researcher · exact comps", cls: "exact_comps" },
-  "researcher:condition_tiers": { label: "Researcher · condition tiers", cls: "condition_tiers" },
-  "researcher:retail": { label: "Researcher · retail", cls: "retail" },
-  writer: { label: "Writer", cls: "writer" },
+  lead: { label: "Lead", sym: "◆" },
+  "researcher:exact_comps": { label: "Researcher · exact comps", sym: "●" },
+  "researcher:condition_tiers": { label: "Researcher · condition tiers", sym: "●" },
+  "researcher:retail": { label: "Researcher · retail", sym: "●" },
+  writer: { label: "Writer", sym: "✎" },
 };
 const CONDITIONS = { new: "New", open_box: "Open box", like_new: "Like new", used: "Used", refurbished: "Refurbished", for_parts: "For parts" };
 
@@ -342,12 +312,14 @@ const money = x => x == null ? "?" : "$" + Number(x).toLocaleString("en-US", { m
 const price = x => x == null ? "?" : Number.isInteger(+x) ? "$" + Number(x).toLocaleString("en-US") : money(x);
 const plural = (n, word, many = word + "s") => `${n} ${n === 1 ? word : many}`;
 const json = s => { try { return typeof s === "string" ? JSON.parse(s) : s; } catch { return null; } };
-const agentInfo = a => AGENTS[a] || { label: a, cls: a.startsWith("researcher") ? "exact_comps" : "lead" };
+const agentInfo = a => AGENTS[a] || { label: a, sym: "●" };
+const agentPill = a => { const i = agentInfo(a); return `<span class="agent"><span class="sym" aria-hidden="true">${i.sym}</span>${esc(i.label)}</span>`; };
+const realNewlines = s => String(s ?? "").replace(/\\r\\n|\\n/g, "\n");
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
 function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: reduced ? "auto" : "smooth" }); }
 async function copy(text, btn, label) {
-  try { await navigator.clipboard.writeText(text); btn.textContent = "Copied!"; }
+  try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
   catch { btn.textContent = "Copy failed"; }
   setTimeout(() => { btn.textContent = label; }, 1500);
 }
@@ -366,23 +338,21 @@ function cite(text, m) {
 }
 
 // --- chat log ---
-function addUser(text) { const m = el("div", "msg user"); m.append(el("div", "note-user", esc(text))); log.append(m); scrollDown(); }
+function addUser(text) { const m = el("div", "msg user"); m.append(el("div", "bubble-user", esc(text))); log.append(m); scrollDown(); }
 function addBot(node) { const m = el("div", "msg bot"); m.append(node); log.append(m); scrollDown(); return m; }
-function addText(text, cls = "") { return addBot(el("div", "card-text " + cls, esc(text))); }
+function addText(text, cls = "") { return addBot(el("div", "bubble " + cls, esc(text))); }
 
 function intro() {
-  const w = el("div", "intro");
+  const w = el("section", "intro");
   w.innerHTML = `<h2>What are you selling?</h2>
-    <p><b>Rummage is for casual resellers</b> putting an item up on eBay, Mercari or Facebook Marketplace. It suggests a
-    <b>competitive asking price</b>: researchers check live eBay listings and current retail prices in parallel, toss out
-    accessories, parts and other models, and a writer drafts a short memo that cites every listing it used.</p>
+    <p><b>Rummage is for casual resellers</b> putting an item up on eBay, Depop, Mercari or Facebook Marketplace. It suggests a
+    <b>competitive asking price</b> from live eBay listings and current retail prices, and cites every listing it used.</p>
     <ol>
       <li><b>Describe the item:</b> brand and model, plus storage, carrier or size if it changes the price.</li>
       <li><b>Say its condition</b> (new, open box, used with light scratches, for parts) and what's included.</li>
       <li><b>Give it about 30 seconds.</b> If a detail is missing, it asks you first.</li>
     </ol>
-    <p class="fine">An asking-price suggestion from active listings, not a prediction of what it will sell for.</p>
-    <div class="fine" style="margin-bottom:2px">Try one:</div>`;
+    <p class="small muted">An asking-price suggestion from active listings, not a prediction of what it will sell for.</p>`;
   const chips = el("div", "chips");
   for (const ex of EXAMPLES) {
     const b = el("button", "chip", esc(ex));
@@ -391,19 +361,30 @@ function intro() {
     chips.append(b);
   }
   w.append(chips);
-  log.append(w);
+  const how = el("section", "how", `<p class="label">How it works</p>
+    <div class="steps">
+      <div class="step"><div class="n">01</div><h4>Lead</h4><p>Reads your item, asks if something that changes the price is missing, and plans the search.</p></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="step"><div class="n">02</div><h4>3 researchers, in parallel</h4><p>Each searches on its own and filters out accessories, parts and other models.</p>
+        <div class="trio"><span>exact comps</span><span>other conditions</span><span>retail prices</span></div></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="step"><div class="n">03</div><h4>Writer</h4><p>Drafts the price memo. Code checks every number and citation against the listings.</p></div>
+    </div>`);
+  const wrap = el("div");
+  wrap.append(w, how);
+  log.append(wrap);
 }
 
 // No streaming: the stage text follows the pipeline's usual timing while /chat runs.
 const STAGES = [
   [0, "Reading your item", "Checking it's specific enough to price"],
-  [3, "Rummaging through listings", "Three researchers search eBay and retail at the same time"],
-  [10, "Sorting the pile", "Tossing accessories, parts, lots and other models, then reviewing every title"],
-  [20, "Writing the tag", "Drafting the memo and checking every citation"],
+  [3, "Researchers are searching", "Exact comps, other conditions and retail prices, at the same time"],
+  [10, "Filtering listings", "Dropping accessories, parts, lots and other models, then reviewing every title"],
+  [20, "Writing the memo", "Drafting the price range and checking every citation"],
   [45, "Digging deeper", "Too few comps or no retail price: researchers are broadening the search"],
 ];
 function loading() {
-  const box = el("div", "loading", `<div class="spin" role="status" aria-label="Researching"></div><div><div class="stage"></div><div class="sub"></div></div>`);
+  const box = el("div", "loading", `<div class="spin" role="status" aria-label="Researching"></div><div><div class="stage"></div><div class="sub small muted"></div></div>`);
   const node = addBot(box);
   const start = Date.now();
   const tick = () => {
@@ -440,7 +421,7 @@ async function ask(text) {
     } else {
       const failed = data.response.startsWith("Research failed");
       const m = addText(data.response, failed ? "error" : "");
-      if (!failed && data.tool_calls?.length) m.append(el("div", "mini-trace", `How I researched this: ${plural(data.tool_calls.length, "step")}, ${plural(data.tool_calls.filter(c => c.type === "tool").length, "tool call")}. I need a bit more before I can price it.`));
+      if (!failed && data.tool_calls?.length) m.append(el("div", "mini-trace", `${plural(data.tool_calls.length, "step")}, ${plural(data.tool_calls.filter(c => c.type === "tool").length, "tool call")}: I need a bit more before I can price it.`));
     }
   } catch (e) {
     done();
@@ -478,24 +459,22 @@ function replay(calls, memo) {
   if (reduced || !runs.length) return Promise.resolve();
   return new Promise(resolve => {
     const box = el("div", "replay");
-    box.innerHTML = `<div class="replay-head"><h3>Rummaging…</h3><a href="#" class="skip">Skip to the price →</a></div>`;
+    box.innerHTML = `<div class="replay-head"><h3>Researching…</h3><a href="#" class="skip">Skip to the price →</a></div>`;
     const lead = calls.find(c => c.name === "assess_item");
     const product = json(lead?.result)?.item?.product || memo.item?.product || "your item";
     const steps = [];
-    const leadCard = el("div", "rcard", `<span class="agent lead">Lead</span><div>Read the item: <b>${esc(product)}</b>. Sent ${plural(runs.filter(r => r.round === 1).length, "researcher")} out in parallel${memo.rounds > 1 ? `, then ${plural(memo.rounds - 1, "more round")}` : ""}.</div>`);
+    const leadCard = el("div", "rcard", `${agentPill("lead")}<div>Read the item: <b>${esc(product)}</b>. Sent ${plural(runs.filter(r => r.round === 1).length, "researcher")} out in parallel${memo.rounds > 1 ? `, then ${plural(memo.rounds - 1, "more round")}` : ""}.</div>`);
     box.append(leadCard);
     steps.push(() => leadCard.classList.add("on"));
-    const rounds = [...new Set(runs.map(r => r.round))];
-    for (const rd of rounds) {
-      const arrow = el("div", "rarrow", rd === 1 ? "↓ in parallel, each in a fresh context ↓" : `↓ round ${rd}: filling gaps ↓`);
+    for (const rd of [...new Set(runs.map(r => r.round))]) {
+      const arrow = el("div", "rarrow", rd === 1 ? "↓ in parallel, each in a fresh context" : `↓ round ${rd}: filling gaps`);
       const grid = el("div", "rgrid");
       box.append(arrow, grid);
       steps.push(() => arrow.classList.add("on"));
       const cards = runs.filter(r => r.round === rd).map(r => {
-        const info = agentInfo(r.agent);
         const unit = r.agent.endsWith("retail") ? "offers" : "listings";
-        const card = el("div", "rcard", `<span class="agent ${info.cls}">${esc(info.label.replace("Researcher · ", ""))}</span>
-          <div class="q">"${esc(r.query)}"</div><div class="n"><span class="k">0</span> kept <span class="meta">of ${r.found ?? "?"} ${unit}</span></div><div class="meter"><i></i></div>`);
+        const card = el("div", "rcard", `${agentPill(r.agent).replace("Researcher · ", "")}
+          <div class="q">"${esc(r.query)}"</div><div class="n"><span class="k">0</span> kept <span class="muted small">of ${r.found ?? "?"} ${unit}</span></div><div class="meter"><i></i></div>`);
         grid.append(card);
         return [card, r];
       });
@@ -507,13 +486,12 @@ function replay(calls, memo) {
     }
     const writerArrow = el("div", "rarrow", "↓");
     const check = memo.citation_check || {};
-    const writer = el("div", "rcard", `<span class="agent writer">Writer</span><div>Drafted the memo from ${plural(memo.comps_kept, "kept comp")}; ${plural(check.cited?.length || 0, "citation")} checked against the sources.</div>`);
+    const writer = el("div", "rcard", `${agentPill("writer")}<div>Drafted the memo from ${plural(memo.comps_kept, "kept comp")}; ${plural(check.cited?.length || 0, "citation")} checked against the sources.</div>`);
     box.append(writerArrow, writer);
     steps.push(() => { writerArrow.classList.add("on"); writer.classList.add("on"); });
     const node = addBot(box);
 
-    // about 2.6s in all, whatever the number of rounds
-    const gap = 2600 / (steps.length + 1);
+    const gap = 2600 / (steps.length + 1);  // about 2.6s in all, whatever the number of rounds
     const timers = steps.map((s, i) => setTimeout(() => { s(); scrollDown(); }, 150 + i * gap));
     const finish = () => { timers.forEach(clearTimeout); clearTimeout(end); node.remove(); resolve(); };
     const end = setTimeout(finish, 150 + steps.length * gap + 500);
@@ -527,25 +505,25 @@ function countUp(node, to, ms) {
 }
 
 // --- memo ---
+function confidencePill(c) {
+  const n = { low: 1, medium: 2, high: 3 }[c] || 0;
+  return `<span class="pill"><span class="lvl" aria-hidden="true">${[1, 2, 3].map(i => `<b class="${i <= n ? "on" : ""}"></b>`).join("")}</span>${esc(c[0].toUpperCase() + c.slice(1))} confidence</span>`;
+}
+
 function renderMemo(m, calls, openTrace) {
   const wrap = el("article", "memo");
   const item = m.item || {};
   const range = `${price(m.price_low)} – ${price(m.price_high)}`;
   const itemLine = [item.product, item.variant, CONDITIONS[item.condition] || item.condition, item.condition_detail].filter(Boolean).join(" · ");
 
-  // hang tag
-  const tagwrap = el("div", "tagwrap");
-  tagwrap.innerHTML = `<svg class="string" viewBox="0 0 80 70" aria-hidden="true"><path d="M4 2 C 20 30, 30 48, 62 ${64}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="1 0"/></svg>
-    <div class="tag">
+  const tagwrap = el("div", "tagwrap", `<div class="tag">
       <div class="eyebrow">Suggested asking price</div>
       <div class="price">${range}</div>
       <div class="item">${esc(itemLine)}</div>
-      <div class="row">
-        <span class="sticker ${esc(m.confidence)}">${esc(m.confidence)} confidence</span>
+      <div class="row">${confidencePill(m.confidence)}
         <button class="btn copy" type="button">Copy price</button>
-        <button class="btn primary drafter" type="button">Draft my listing</button>
-      </div>
-    </div>`;
+        <button class="btn primary drafter" type="button">Draft my listing</button></div>
+    </div>`);
   wrap.append(tagwrap, el("div", "disclaimer", "A competitive asking price from active listings, not a prediction of what it will sell for."));
   const copyBtn = tagwrap.querySelector(".copy");
   copyBtn.onclick = () => copy(range.replace(" – ", "–"), copyBtn, "Copy price");
@@ -553,25 +531,25 @@ function renderMemo(m, calls, openTrace) {
   // trace summary strip, right under the tag
   const researchers = calls.find(c => c.name.startsWith("dispatch_researchers"))?.args?.briefs?.length || researcherRuns(calls).filter(r => r.round === 1).length;
   const tools = calls.filter(c => c.type === "tool").length;
-  const stripBtn = el("button", "strip-link", `<span>🔍 ${plural(researchers, "researcher")} in parallel</span><span>· ${plural(tools, "tool call")}</span>
-    <span>· ${plural(m.rounds || 1, "round")}</span><span>· ${m.comps_kept} of ${m.comps_found} listings kept</span><span class="go">How I researched this ↓</span>`);
+  const sep = '<span class="sep" aria-hidden="true">|</span>';
+  const stripBtn = el("button", "strip-link", `<span>🔍 ${plural(researchers, "researcher")} in parallel</span>${sep}<span>${plural(tools, "tool call")}</span>${sep}
+    <span>${plural(m.rounds || 1, "round")}</span>${sep}<span>${m.comps_kept} of ${m.comps_found} listings kept</span><span class="go">How I researched this ↓</span>`);
   stripBtn.type = "button";
   wrap.append(stripBtn);
 
-  // receipt: headline, rationale, key factors stay visible
-  const r = el("div", "receipt");
-  r.innerHTML = `<p class="headline">${cite(m.headline, m)}</p><p>${cite(m.rationale, m)}</p>
-    <p class="confline">Confidence: ${esc(m.confidence)}. ${cite(m.confidence_reason, m)}</p>
-    <hr class="rule"><h3>Key factors</h3><ul>${(m.key_factors || []).map(k => `<li>${cite(k, m)}</li>`).join("")}</ul>
+  // the memo: headline, rationale and key factors stay visible
+  const body = el("div", "memo-body");
+  body.innerHTML = `<p class="headline">${cite(m.headline, m)}</p><p>${cite(m.rationale, m)}</p>
+    <p class="confline">${esc(m.confidence[0].toUpperCase() + m.confidence.slice(1))} confidence: ${cite(m.confidence_reason, m)}</p>
+    <hr class="divider"><h3>Key factors</h3><ul>${(m.key_factors || []).map(k => `<li>${cite(k, m)}</li>`).join("")}</ul>
     ${m.assumptions?.length ? `<div class="assumed"><b>Assumed:</b> ${m.assumptions.map(esc).join(" ")}</div>` : ""}
-    <hr class="rule"><h3>Limitations</h3><ul>${(m.limitations || []).map(x => `<li>${cite(x, m)}</li>`).join("")}</ul>`;
+    <hr class="divider"><h3>Limitations</h3><ul>${(m.limitations || []).map(x => `<li>${cite(x, m)}</li>`).join("")}</ul>`;
   const draftSlot = el("div");
-  r.append(draftSlot);
-  wrap.append(r);
+  body.append(draftSlot);
+  wrap.append(body);
   const drafter = tagwrap.querySelector(".drafter");
   drafter.onclick = () => draftListing(m, drafter, draftSlot);
 
-  // folded sections
   wrap.append(compsSection(m), conditionSection(m), retailSection(m), sourcesSection(m));
   const trace = traceSection(calls, m, openTrace);
   wrap.append(trace);
@@ -590,20 +568,20 @@ function fold(title, peek, body) {
 
 function compsSection(m) {
   const body = el("div");
-  // "different colorway: picante red" and "different colorway: brown" -> one sticker, details on hover
+  // "different colorway: picante red" and "different colorway: brown" -> one pill, details on hover
   const groups = {};
   for (const [why, n] of Object.entries(m.excluded_summary || {})) {
     const key = why.split(":")[0].trim();
     (groups[key] ||= { n: 0, details: [] }).n += n;
     if (why.includes(":")) groups[key].details.push(`${n}× ${why.split(":").slice(1).join(":").trim()}`);
   }
-  const reasons = Object.entries(groups).sort((a, b) => b[1].n - a[1].n).map(([why, g]) => [why, g.n, g.details]);
-  const excludedN = reasons.reduce((a, [, n]) => a + n, 0);
+  const reasons = Object.entries(groups).sort((a, b) => b[1].n - a[1].n);
+  const excludedN = reasons.reduce((a, [, g]) => a + g.n, 0);
   body.innerHTML = `${priceStrip(m)}
     <div class="funnel"><div><b>${m.comps_found}</b><span>found on eBay</span></div><div><b>${m.comps_after_title_filter}</b><span>after title filter</span></div><div><b>${m.comps_kept}</b><span>kept after review</span></div></div>
-    ${reasons.length ? `<div class="meta" style="margin-bottom:6px">Tossed out (${excludedN}) and why</div><div class="stickers" style="margin-bottom:14px">${reasons.map(([why, n, details]) => `<span class="sticker" title="${esc(details.join(", "))}"><b>${n}</b> ${esc(why)}</span>`).join("")}</div>` : ""}`;
+    ${reasons.length ? `<div class="small muted" style="margin-bottom:6px">Filtered out (${excludedN}) and why</div><div class="pills" style="margin-bottom:14px">${reasons.map(([why, g]) => `<span class="pill" title="${esc(g.details.join(", "))}"><b>${g.n}</b> ${esc(why)}</span>`).join("")}</div>` : ""}`;
   body.append(compsTable(m));
-  return fold("Comparable listings", `${m.comps_kept} kept of ${m.comps_found} · ${plural(excludedN, "tossed", "tossed")}`, body);
+  return fold("Comparable listings", `${m.comps_kept} kept of ${m.comps_found} · ${excludedN} filtered out`, body);
 }
 
 function compsTable(m) {
@@ -616,33 +594,33 @@ function compsTable(m) {
   const spread = rows.length <= LIMIT ? rows : Array.from({ length: LIMIT }, (_, i) => rows[Math.round(i * (rows.length - 1) / (LIMIT - 1))]);
   const draw = list => `<div class="tablewrap"><table><thead><tr><th><span class="sr">Photo</span></th><th>Listing</th>
     <th class="num hide-sm">Price</th><th class="num hide-sm">Ship</th><th class="num">Total</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`;
-  wrap.innerHTML = (rows.length > LIMIT ? `<div class="meta" style="margin-bottom:4px">${LIMIT} of ${rows.length}, spread from cheapest to priciest</div>` : "") + draw(spread);
+  wrap.innerHTML = (rows.length > LIMIT ? `<div class="small muted" style="margin-bottom:4px">${LIMIT} of ${rows.length}, spread from cheapest to priciest</div>` : "") + draw(spread);
   if (rows.length > LIMIT) {
     const b = el("button", "btn", `Show all ${rows.length}`);
-    b.type = "button"; b.style.marginTop = "10px";
+    b.type = "button"; b.style.marginTop = "12px";
     b.onclick = () => { wrap.innerHTML = draw(rows); };
     wrap.append(b);
   }
   return wrap;
 }
 
-// every kept comp on a price line, with the suggested range as a band
+// every kept comp on a price line, with the suggested range as the accent band
 function priceStrip(m) {
   const comps = (m.comps || []).map(c => ({ ...c, x: c.total ?? c.price, known: c.total != null })).filter(c => c.x != null);
   if (!comps.length) return "";
   const xs = comps.map(c => c.x).concat([m.price_low, m.price_high]);
   let lo = Math.min(...xs), hi = Math.max(...xs);
   const pad = (hi - lo) * 0.06 || 5; lo = Math.max(0, lo - pad); hi += pad;
-  const W = innerWidth < 600 ? 340 : 640, H = 74, L = 8, R = 8, y = 36;
+  const W = innerWidth < 640 ? 340 : 640, H = 74, L = 8, R = 8, y = 38;
   const sx = v => L + (v - lo) / (hi - lo) * (W - L - R);
-  const dots = comps.map((c, i) => `<a href="${esc(c.url)}" target="_blank" rel="noopener"><circle cx="${sx(c.x).toFixed(1)}" cy="${(y + ((i * 37) % 9 - 4) * 1.7).toFixed(1)}" r="4.4"
-      fill="${c.known ? "var(--olive)" : "var(--cream)"}" stroke="var(--olive-ink)" stroke-width="1.3" fill-opacity=".8"><title>${esc(c.id)}: ${esc(c.title)} · ${money(c.x)}</title></circle></a>`).join("");
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${comps.length} kept comps from ${money(Math.min(...comps.map(c => c.x)))} to ${money(Math.max(...comps.map(c => c.x)))}; suggested range ${price(m.price_low)} to ${price(m.price_high)}">
-    <rect x="${sx(m.price_low)}" y="16" width="${Math.max(3, sx(m.price_high) - sx(m.price_low))}" height="40" rx="3" fill="var(--band)" stroke="var(--mustard)" stroke-dasharray="3 3"/>
+  const dots = comps.map((c, i) => `<a href="${esc(c.url)}" target="_blank" rel="noopener"><circle cx="${sx(c.x).toFixed(1)}" cy="${(y + ((i * 37) % 9 - 4) * 1.6).toFixed(1)}" r="4.2"
+      fill="${c.known ? "var(--dot)" : "var(--surface)"}" stroke="var(--dot)" stroke-width="1.3"><title>${esc(c.id)}: ${esc(c.title)} · ${money(c.x)}</title></circle></a>`).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${comps.length} kept comps; suggested range ${price(m.price_low)} to ${price(m.price_high)}">
+    <rect x="${sx(m.price_low)}" y="18" width="${Math.max(3, sx(m.price_high) - sx(m.price_low))}" height="40" rx="6" fill="var(--accent-soft)" stroke="var(--accent-line)"/>
     <line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line-strong)"/>
     ${ticks(lo, hi, W < 400 ? 3 : 5).map(t => `<text x="${sx(t)}" y="${H - 2}" text-anchor="middle">${price(t)}</text>`).join("")}
     ${dots}
-    <text class="you" x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="11" text-anchor="middle">your range</text>
+    <text class="acc" x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="12" text-anchor="middle">your range</text>
   </svg><div class="legend">Each dot is a kept listing, price with shipping (hollow: shipping not stated).</div>`;
 }
 function ticks(lo, hi, n) {
@@ -653,32 +631,34 @@ function ticks(lo, hi, n) {
   return out;
 }
 
-// condition ladder: median by condition, the seller's tier highlighted, the suggested range as a band
+// condition ladder: your condition from the exact comps (the memo's figures), the rest from the broader condition search
 function conditionSection(m) {
   const tiers = m.condition_tiers || [];
   if (!tiers.length) return el("div");
   const mine = m.item?.condition;
-  const W = innerWidth < 600 ? 340 : 640, rowH = 30, top = 18, labelW = W < 400 ? 74 : 96, valW = 64;
-  const H = top + tiers.length * rowH + 22;
-  const max = Math.max(...tiers.map(t => t.q3 ?? t.median), m.price_high) * 1.06;
+  const name = t => CONDITIONS[t] || t;
+  const W = innerWidth < 640 ? 340 : 640, rowH = 32, top = 22, labelW = W < 400 ? 70 : 92, valW = 76;
+  const H = top + tiers.length * rowH + 20;
+  const max = Math.max(...tiers.map(t => t.q3 ?? t.median), m.price_high) * 1.05;
   const sx = v => labelW + v / max * (W - labelW - valW);
   const bars = tiers.map((t, i) => {
     const y = top + i * rowH, you = t.condition === mine;
-    return `<g><text class="${you ? "you" : "lbl"}" x="${labelW - 8}" y="${y + 15}" text-anchor="end">${esc(CONDITIONS[t.condition] || t.condition)}${you ? " ★" : ""}</text>
-      <rect x="${labelW}" y="${y + 4}" width="${Math.max(2, sx(t.median) - labelW)}" height="16" rx="2" fill="${you ? "var(--rust)" : "var(--chart-bar)"}"/>
-      <line x1="${sx(t.q1)}" x2="${sx(t.q3)}" y1="${y + 12}" y2="${y + 12}" stroke="var(--ink)" stroke-width="1.2" opacity=".55"/>
-      <text class="${you ? "you" : ""}" x="${sx(Math.max(t.median, t.q3 ?? t.median)) + 6}" y="${y + 16}">${price(Math.round(t.median))}</text>
-      <title>${esc(CONDITIONS[t.condition] || t.condition)}: median ${money(t.median)}, middle half ${money(t.q1)}–${money(t.q3)}, ${t.n} listings</title></g>`;
+    return `<g><text class="${you ? "you" : "lbl"}" x="${labelW - 10}" y="${y + 16}" text-anchor="end">${esc(name(t.condition))}</text>
+      <rect x="${labelW}" y="${y + 5}" width="${Math.max(2, sx(t.median) - labelW)}" height="16" rx="3" fill="${you ? "var(--bar-you)" : "var(--bar)"}"/>
+      <line x1="${sx(t.q1)}" x2="${sx(t.q3)}" y1="${y + 13}" y2="${y + 13}" stroke="var(--muted)" stroke-width="1.2"/>
+      <text class="${you ? "you" : ""}" x="${sx(Math.max(t.median, t.q3 ?? t.median)) + 6}" y="${y + 17}">${money(t.median)}</text>
+      <title>${esc(name(t.condition))}: median ${money(t.median)}, middle half ${money(t.q1)}–${money(t.q3)}, ${t.n} listings${t.source === "exact_comps" ? " (your exact comps)" : " (broader condition search)"}</title></g>`;
   }).join("");
-  const band = `<rect x="${sx(m.price_low)}" y="${top - 6}" width="${Math.max(3, sx(m.price_high) - sx(m.price_low))}" height="${tiers.length * rowH + 6}" fill="var(--band)" stroke="var(--mustard)" stroke-dasharray="3 3"/>
-    <text class="you" x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="${top - 9}" text-anchor="middle">your range</text>`;
-  const svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Median asking price by condition; your condition is ${esc(CONDITIONS[mine] || mine)}">
-    ${band}${bars}<text x="${labelW}" y="${H - 3}">$0</text><text x="${W - valW}" y="${H - 3}" text-anchor="end">${price(Math.round(max))}</text></svg>
-    <div class="legend">Bar: median asking price; line: middle half of listings; ★ your condition.</div>`;
-  const table = `<div class="tablewrap"><table><thead><tr><th>Condition</th><th class="num">Listings</th><th class="num">Median</th><th class="num">Middle half</th></tr></thead>
-    <tbody>${tiers.map(t => `<tr><td>${esc(CONDITIONS[t.condition] || t.condition)}</td><td class="num">${t.n}</td><td class="num">${money(t.median)}</td><td class="num">${money(t.q1)}–${money(t.q3)}</td></tr>`).join("")}</tbody></table></div>`;
+  const band = `<rect x="${sx(m.price_low)}" y="${top - 4}" width="${Math.max(3, sx(m.price_high) - sx(m.price_low))}" height="${tiers.length * rowH + 4}" rx="4" fill="var(--accent-soft)" stroke="var(--accent-line)"/>
+    <text class="acc" x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="${top - 9}" text-anchor="middle">your range</text>`;
+  const svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Median asking price by condition; yours is ${esc(name(mine))}">
+    ${band}${bars}<text x="${labelW}" y="${H - 2}">$0</text><text x="${W - valW}" y="${H - 2}" text-anchor="end">${price(Math.round(max))}</text></svg>
+    <div class="legend">Bar: median asking price; line: middle half of listings. <b>${esc(name(mine))}</b> uses your exact comps, the same figures as the memo. The other conditions come from a broader condition search.</div>`;
+  const table = `<div class="tablewrap"><table><thead><tr><th>Condition</th><th class="num">Listings</th><th class="num">Median</th><th class="num hide-sm">Middle half</th><th class="hide-sm">From</th></tr></thead>
+    <tbody>${tiers.map(t => `<tr><td>${t.condition === mine ? `<b>${esc(name(t.condition))}</b>` : esc(name(t.condition))}</td><td class="num">${t.n}</td><td class="num">${money(t.median)}</td>
+      <td class="num hide-sm">${money(t.q1)}–${money(t.q3)}</td><td class="hide-sm small muted">${t.source === "exact_comps" ? "your exact comps" : "broader condition search"}</td></tr>`).join("")}</tbody></table></div>`;
   const mineRow = tiers.find(t => t.condition === mine);
-  return fold("Price by condition", mineRow ? `${esc(CONDITIONS[mine])} median ${price(Math.round(mineRow.median))}` : plural(tiers.length, "condition"), svg + table);
+  return fold("Price by condition", mineRow ? `${esc(name(mine))} median ${money(mineRow.median)}` : plural(tiers.length, "condition"), svg + table);
 }
 
 function retailSection(m) {
@@ -689,9 +669,9 @@ function retailSection(m) {
     const link = cite(`[${ref.id}]`, m);
     const x = ref.resale_to_retail_ratio;
     body += ref.role === "premium"
-      ? `<p class="ratio"><span class="sticker medium">resale premium</span> Used listings ask <b>${x.toFixed(2)}×</b> ${model}lowest new price (${money(ref.comp_median)} vs ${money(ref.price)} ${link}), so the price comes from comps alone.</p>`
-      : `<p class="ratio">Resale-to-retail ratio <b>${x?.toFixed(2) ?? "?"}</b>: comps sit below ${model}lowest new price, ${money(ref.price)} at ${esc(ref.retailer)} ${link}, which acts as a ceiling.</p>`;
-    if (ref.successor) body += `<p class="meta">No current retail price for this exact model, so this is its successor: a looser ceiling.</p>`;
+      ? `<p><span class="pill">Resale premium</span> Used listings ask <b>${x.toFixed(2)}×</b> ${model}lowest new price (${money(ref.comp_median)} vs ${money(ref.price)} ${link}), so the price comes from comps alone.</p>`
+      : `<p>Resale-to-retail ratio <b>${x?.toFixed(2) ?? "?"}</b>: comps sit below ${model}lowest new price, ${money(ref.price)} at ${esc(ref.retailer)} ${link}, which acts as a ceiling.</p>`;
+    if (ref.successor) body += `<p class="small muted">No current retail price for this exact model, so this is its successor: a looser ceiling.</p>`;
     peek = `${ref.role === "premium" ? "premium" : "ceiling"} ${money(ref.price)}${x ? ` · ratio ${x.toFixed(2)}` : ""}`;
   }
   if (m.retail?.length) {
@@ -709,9 +689,9 @@ function sourcesSection(m) {
   const srcs = Object.entries(m.sources || {});
   const check = m.citation_check || {};
   const body = `${check.warnings?.length ? `<div class="warn">${check.warnings.map(esc).join("<br>")}</div>` : ""}
-    <p class="meta">Citation check: ${plural(check.cited?.length || 0, "source")} cited, ${plural(check.unknown_tags_stripped?.length || 0, "invalid tag")} removed. Every tag links to a listing a tool returned.</p>
-    <ul class="srclist">${srcs.map(([id, s]) => `<li>${cite(`[${id}]`, m)} <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a> <span class="meta">· ${esc(s.detail)} · ${money(s.price)}</span></li>`).join("")}</ul>`;
-  return fold("Sources", `${srcs.length} · ${plural(check.cited?.length || 0, "cited", "cited")}${check.warnings?.length ? ` · ${plural(check.warnings.length, "warning")}` : ""}`, body);
+    <p class="small muted">Citation check: ${plural(check.cited?.length || 0, "source")} cited, ${plural(check.unknown_tags_stripped?.length || 0, "invalid tag")} removed. Every tag links to a listing a tool returned.</p>
+    <ul class="srclist">${srcs.map(([id, s]) => `<li>${cite(`[${id}]`, m)} <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a> <span class="small muted">· ${esc(s.detail)} · ${money(s.price)}</span></li>`).join("")}</ul>`;
+  return fold("Sources", `${srcs.length} · ${check.cited?.length || 0} cited${check.warnings?.length ? ` · ${plural(check.warnings.length, "warning")}` : ""}`, body);
 }
 
 // the research trace, grouped by agent
@@ -719,14 +699,14 @@ function traceSection(calls, m, open) {
   const d = el("details", "trace");
   d.open = open;
   const tools = calls.filter(c => c.type === "tool").length;
-  d.innerHTML = `<summary><h3>How I researched this</h3><span class="peek">${plural(calls.length, "step")} · ${plural(tools, "tool call")} · ${plural(m.rounds || 1, "round")}</span><span class="chev">show / hide</span></summary>`;
-  const body = el("div", "tracebody", `<div class="trace-note">Every number in the memo comes from these tool calls. <b>Tool</b> = an agent called it; <b>step</b> = code ran it (intake result, citation check, fallbacks).</div>`);
+  d.innerHTML = `<summary><h3>How I researched this</h3><span class="peek">${plural(calls.length, "step")} · ${plural(tools, "tool call")} · ${plural(m.rounds || 1, "round")}</span><span class="chev">Show / hide</span></summary>`;
+  const body = el("div", "tracebody", `<div class="trace-note">Every number in the memo comes from these tool calls. <b>Tool</b>: an agent called it. <b>Step</b>: code ran it (intake result, citation check, fallbacks).</div>`);
   const order = ["lead", "researcher:exact_comps", "researcher:condition_tiers", "researcher:retail", "writer"];
   const agents = [...new Set(calls.map(c => c.agent))].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
   for (const a of agents) {
     const mine = calls.filter(c => c.agent === a);
-    const info = agentInfo(a);
-    const g = el("div", "group", `<div class="group-head"><span class="agent ${info.cls}">${esc(info.label)}</span><span class="meta">${plural(mine.filter(c => c.type === "tool").length, "tool call")}${mine.some(c => c.type !== "tool") ? `, ${plural(mine.filter(c => c.type !== "tool").length, "step")}` : ""}</span></div>`);
+    const nTools = mine.filter(c => c.type === "tool").length, nSteps = mine.length - nTools;
+    const g = el("div", "group", `<div class="group-head">${agentPill(a)}<span class="small muted">${plural(nTools, "tool call")}${nSteps ? `, ${plural(nSteps, "step")}` : ""}</span></div>`);
     for (const c of mine) {
       const kind = c.type === "tool" ? "tool" : "step";
       const args = typeof c.args === "string" ? c.args : JSON.stringify(c.args, null, 1);
@@ -748,6 +728,7 @@ function summarize(c) {
   if (c.name.startsWith("review_listings")) return `kept ${r.n_kept ?? "?"} of ${r.n_before_review ?? "?"} · excluded ${(a.exclude || []).length} in review`;
   if (c.name === "assess_item") return r.ready ? `ready: ${r.item?.product || ""}` : "needs more detail";
   if (c.name === "validate_citations") return `${plural(r.cited?.length || 0, "citation")} valid, ${plural(r.unknown_tags_stripped?.length || 0, "invalid tag")} removed`;
+  if (c.name === "recount") return r.revised ? "comp counts corrected" : "comp counts left as drafted";
   return "details";
 }
 
@@ -758,12 +739,13 @@ async function draftListing(m, btn, slot) {
     const res = await fetch("/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memo: m }) });
     if (!res.ok) throw new Error(`server returned ${res.status}`);
     const d = await res.json();
+    const draft = { title: d.title, description: realNewlines(d.description) };
     slot.innerHTML = `<div class="draft"><h3>Your listing draft</h3>
-      <div class="dtitle">${esc(d.title)}</div><div class="count">${d.title.length}/80 characters</div>
-      <pre>${esc(d.description)}</pre>
-      <p class="meta">List at <b>${money(d.price)}</b>: ${esc(d.price_note)} Fill in anything in [brackets] before posting.</p>
+      <div class="dtitle">${esc(draft.title)}</div><div class="small muted">${draft.title.length}/80 characters</div>
+      <div class="desc">${esc(draft.description)}</div>
+      <p class="small muted">List at <b>${money(d.price)}</b>: ${esc(d.price_note)} Fill in anything in [brackets] before posting.</p>
       <div class="row"><button class="btn" type="button" data-copy="title">Copy title</button><button class="btn" type="button" data-copy="description">Copy description</button></div></div>`;
-    slot.querySelectorAll("[data-copy]").forEach(b => { const label = b.textContent; b.onclick = () => copy(d[b.dataset.copy], b, label); });
+    slot.querySelectorAll("[data-copy]").forEach(b => { const label = b.textContent; b.onclick = () => copy(draft[b.dataset.copy], b, label); });
     slot.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
     btn.textContent = "Redraft";
   } catch (e) {

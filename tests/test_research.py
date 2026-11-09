@@ -492,3 +492,23 @@ def test_writer_is_asked_once_more_when_its_comp_counts_are_off(monkeypatch):
     assert len(prompts) == 2 and "there are 12 kept comps" in prompts[1]
     assert "12 kept comps" in memo["headline"] and not memo["citation_check"]["warnings"]
     assert any(c["name"] == "recount" for c in run.trace.calls)
+
+
+def test_sellers_condition_uses_the_exact_comps_median_everywhere():
+    run = run_with_sources(12)  # exact comps: 81..92, median 86.5
+    f = fake_finding("condition_tiers")
+    f["stats_by_condition"] = {t: {"price_with_shipping": {"n": 5, "median": m, "q1": m, "q3": m}, "item_price": {"n": 5}}
+                               for t, m in [("new", 150.0), ("used", 99.0)]}
+    run.findings.append(f)
+    rows = {r["condition"]: r for r in research.tier_rows(run)}
+    assert rows["used"]["median"] == 86.5 and rows["used"]["source"] == "exact_comps" and rows["used"]["n"] == 12
+    assert rows["new"]["source"] == "condition_search"
+    data = json.loads(research.writer_input(run, research.confidence_cap(run)))
+    tiers = next(x for x in data["findings"] if x["researcher"] == "condition_tiers")
+    assert "used" not in tiers["stats_by_condition"] and "stats" not in tiers  # no second used median to quote
+
+
+def test_draft_description_gets_real_line_breaks():
+    literal = "Intro.\\n- Condition: Good.\\n- Included: Case"  # backslash-n as two characters
+    assert "\n" not in literal
+    assert research.tidy_description(literal) == "Intro.\n- Condition: Good.\n- Included: Case"
