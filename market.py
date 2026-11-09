@@ -55,7 +55,8 @@ def _cached(kind: str, params: dict, fetch, use_cache: bool = True) -> dict:
     they're the cache key, and they're saved next to the response to make the file readable."""
     path = _cache_path(kind, params)
     ttl = float(os.environ.get("CACHE_TTL_HOURS", "6")) * 3600
-    if use_cache and path.exists() and time.time() - path.stat().st_mtime < ttl:
+    # ttl > 0: on Windows a just-written file's mtime can be a hair after time.time()
+    if use_cache and ttl > 0 and path.exists() and time.time() - path.stat().st_mtime < ttl:
         return json.loads(path.read_text(encoding="utf-8"))["response"]
     response = fetch()
     try:
@@ -141,6 +142,8 @@ def ebay_record(item: dict) -> dict:
         "itemCreationDate": item.get("itemCreationDate"),
         # The tracking query string adds nothing: /itm/<id> opens the same listing
         "itemWebUrl": (item.get("itemWebUrl") or "").split("?")[0],
+        # eBay's small (225px) listing photo, for the comps table; None if the listing has none
+        "image": (item.get("image") or {}).get("imageUrl"),
     }
 
 

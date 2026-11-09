@@ -3,156 +3,290 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Resale Price Research</title>
+<title>Rummage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Permanent+Marker&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f6f5f2; --surface: #ffffff; --surface-2: #f0eee9; --text: #1d1c1a; --muted: #6b6862;
-  --border: #e2dfd8; --accent: #1f6f5c; --accent-soft: #e3f1ec; --accent-text: #ffffff;
-  --user: #1f6f5c; --user-text: #ffffff; --warn: #9a5b00; --warn-soft: #fbf0dc;
-  --low: #b3261e; --low-soft: #fbe4e2; --med: #9a5b00; --med-soft: #fbf0dc; --high: #1f6f5c; --high-soft: #e3f1ec;
-  --dot: #6b6862; --band: rgba(31, 111, 92, .16);
-  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.04);
+  --paper: #e8d9bd; --paper-dot: rgba(120, 90, 50, .07);
+  --cream: #fbf6ea; --cream-2: #f3ead6; --manila: #f4e2b0; --manila-edge: #d9c07e;
+  --ink: #2b2620; --muted: #6a5f50; --line: #ddd0b6; --line-strong: #c9b896;
+  --mustard: #d9a62e; --mustard-ink: #7d5a0c; --mustard-soft: #f6e4ae;
+  --olive: #6b7a3a; --olive-ink: #4c5a22; --olive-soft: #e2e6c8;
+  --rust: #b5532a; --rust-ink: #963f1b; --rust-soft: #f4d9c9;
+  --denim: #3f6e7a; --denim-soft: #d5e4e6; --plum: #7a4a6b; --plum-soft: #ecdbe5;
+  --chart-bar: #b9b38c; --band: rgba(217, 166, 46, .32);
+  --shadow: 0 1px 0 rgba(0,0,0,.04), 0 6px 16px rgba(70, 50, 20, .12);
+  --hand: "Permanent Marker", "Segoe Print", "Bradley Hand", cursive;
+  --type: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
 }
+/* Dark: a chalkboard. Same accents, lifted for contrast. The hang tag stays manila. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #141413; --surface: #1d1c1a; --surface-2: #262522; --text: #ecebe7; --muted: #a19e97;
-    --border: #34322e; --accent: #5cc0a5; --accent-soft: #1c332d; --accent-text: #0e1f1a;
-    --user: #2b5d50; --user-text: #f2fbf8; --warn: #e5b05c; --warn-soft: #3a2e1a;
-    --low: #f08a82; --low-soft: #3d201e; --med: #e5b05c; --med-soft: #3a2e1a; --high: #5cc0a5; --high-soft: #1c332d;
-    --dot: #a19e97; --band: rgba(92, 192, 165, .2); --shadow: none; color-scheme: dark;
+    --paper: #1e2925; --paper-dot: rgba(255, 255, 255, .025);
+    --cream: #26332e; --cream-2: #2d3b35; --ink: #ece6d6; --muted: #b6ae9c; --line: #3a4943; --line-strong: #4b5c55;
+    --mustard: #e7b84a; --mustard-ink: #f0c869; --mustard-soft: #4a3f22;
+    --olive: #a9b86a; --olive-ink: #c2d084; --olive-soft: #36422a;
+    --rust: #e0805a; --rust-ink: #f09a77; --rust-soft: #4a2e24;
+    --denim: #8ab8c4; --denim-soft: #263f45; --plum: #d39cc0; --plum-soft: #45303f;
+    --chart-bar: #5f6d57; --band: rgba(231, 184, 74, .25);
+    --shadow: 0 6px 18px rgba(0, 0, 0, .35); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #141413; --surface: #1d1c1a; --surface-2: #262522; --text: #ecebe7; --muted: #a19e97;
-  --border: #34322e; --accent: #5cc0a5; --accent-soft: #1c332d; --accent-text: #0e1f1a;
-  --user: #2b5d50; --user-text: #f2fbf8; --warn: #e5b05c; --warn-soft: #3a2e1a;
-  --low: #f08a82; --low-soft: #3d201e; --med: #e5b05c; --med-soft: #3a2e1a; --high: #5cc0a5; --high-soft: #1c332d;
-  --dot: #a19e97; --band: rgba(92, 192, 165, .2); --shadow: none; color-scheme: dark;
+  --paper: #1e2925; --paper-dot: rgba(255, 255, 255, .025);
+  --cream: #26332e; --cream-2: #2d3b35; --ink: #ece6d6; --muted: #b6ae9c; --line: #3a4943; --line-strong: #4b5c55;
+  --mustard: #e7b84a; --mustard-ink: #f0c869; --mustard-soft: #4a3f22;
+  --olive: #a9b86a; --olive-ink: #c2d084; --olive-soft: #36422a;
+  --rust: #e0805a; --rust-ink: #f09a77; --rust-soft: #4a2e24;
+  --denim: #8ab8c4; --denim-soft: #263f45; --plum: #d39cc0; --plum-soft: #45303f;
+  --chart-bar: #5f6d57; --band: rgba(231, 184, 74, .25);
+  --shadow: 0 6px 18px rgba(0, 0, 0, .35); color-scheme: dark;
 }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-  background: var(--bg); color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--paper);
+  background-image: radial-gradient(var(--paper-dot) 1px, transparent 1.5px), radial-gradient(var(--paper-dot) 1px, transparent 1.5px);
+  background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 5px;
+  color: var(--ink); font: 15.5px/1.55 var(--body);
   min-height: 100vh; display: flex; flex-direction: column;
 }
-a { color: var(--accent); }
-button { font: inherit; cursor: pointer; }
-header {
-  position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--border);
+a { color: var(--rust-ink); }
+button { font: inherit; cursor: pointer; color: inherit; }
+:focus-visible { outline: 2.5px solid var(--rust); outline-offset: 2px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Header */
+header { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 2px dashed var(--line-strong); }
+.bar { max-width: 900px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.logo { display: inline-block; font-family: var(--hand); font-size: 28px; line-height: 1.1; color: var(--rust-ink); transform: rotate(-3deg); transform-origin: left bottom; margin: 0 0 4px; letter-spacing: .5px; }
+.logo .dot { color: var(--mustard); }
+.tagline { font-family: var(--type); font-size: 13px; color: var(--muted); }
+.grow { flex: 1; min-width: 0; }
+.btn {
+  font-family: var(--type); font-size: 13px; font-weight: 700; background: var(--cream); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 6px; padding: 6px 11px; box-shadow: 2px 2px 0 var(--ink); white-space: nowrap;
 }
-.bar { max-width: 880px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
-.bar h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
-.bar p { margin: 0; color: var(--muted); font-size: 13px; }
-.bar .grow { flex: 1; min-width: 0; }
-.ghost {
-  background: transparent; border: 1px solid var(--border); color: var(--text);
-  padding: 6px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap;
-}
-.ghost:hover { background: var(--surface-2); }
-main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 16px 16px 8px; }
-#log { display: flex; flex-direction: column; gap: 14px; }
-.msg { max-width: 100%; }
-.msg.user { align-self: flex-end; max-width: 80%; background: var(--user); color: var(--user-text);
-  padding: 9px 14px; border-radius: 16px 16px 4px 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+.btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+.btn.primary { background: var(--mustard); color: #2b2620; }
+.btn:disabled { opacity: .55; cursor: default; transform: none; }
+
+main { flex: 1; width: 100%; max-width: 900px; margin: 0 auto; padding: 18px 16px 8px; }
+#log { display: flex; flex-direction: column; gap: 18px; }
+.msg.user { align-self: flex-end; max-width: 80%; }
 .msg.bot { align-self: stretch; min-width: 0; }
-.bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 16px 16px 16px 4px;
-  padding: 10px 14px; box-shadow: var(--shadow); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 640px; width: fit-content; }
-.bubble.error { border-color: var(--low); background: var(--low-soft); }
-.welcome { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
-.welcome h2 { margin: 0 0 6px; font-size: 18px; }
-.welcome p { margin: 0 0 10px; }
-.welcome .howto { margin: 0 0 10px; padding-left: 20px; }
-.welcome .howto li { margin: 3px 0; }
-.welcome .fine { color: var(--muted); font-size: 13px; font-style: italic; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 6px 12px; font-size: 13px; text-align: left; }
-.chip:hover { border-color: var(--accent); }
-.loading { display: flex; align-items: center; gap: 12px; }
-.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--border); border-top-color: var(--accent);
-  animation: spin .8s linear infinite; flex: none; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
-.loading .stage { font-weight: 550; }
+
+/* User message: a handwritten note on a sticky */
+.note-user {
+  background: var(--mustard-soft); color: var(--ink); padding: 10px 14px; border-radius: 3px; box-shadow: var(--shadow);
+  transform: rotate(.6deg); white-space: pre-wrap; overflow-wrap: anywhere; border-left: 4px solid var(--mustard);
+}
+/* Agent text: an index card */
+.card-text {
+  background: var(--cream); border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow); padding: 12px 16px;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-width: 640px; width: fit-content;
+  background-image: linear-gradient(transparent 0 27px, var(--line) 27px 28px); background-size: 100% 28px; background-position: 0 6px; line-height: 28px;
+}
+.card-text.error { border-color: var(--rust); background: var(--rust-soft); background-image: none; line-height: 1.5; }
+
+/* Intro: an index card pinned to the board */
+.intro { position: relative; background: var(--cream); border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow); padding: 22px 20px 18px; transform: rotate(-.4deg); }
+.intro::before { content: ""; position: absolute; top: -9px; left: 50%; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f09a77, var(--rust) 60%, #6e2a10); box-shadow: 0 2px 3px rgba(0,0,0,.3); }
+.intro h2 { font-family: var(--hand); font-weight: 400; font-size: 24px; margin: 0 0 8px; color: var(--rust-ink); }
+.intro p { margin: 0 0 10px; }
+.intro ol { margin: 0 0 10px; padding-left: 22px; }
+.intro li { margin: 4px 0; }
+.intro .fine { font-family: var(--type); font-size: 13px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chip { font-family: var(--type); font-size: 13px; text-align: left; background: var(--cream-2); border: 1.5px dashed var(--line-strong); border-radius: 6px; padding: 6px 10px; }
+.chip:hover { border-color: var(--rust); border-style: solid; }
+
+/* Loading */
+.loading { display: flex; align-items: center; gap: 12px; font-family: var(--type); background: var(--cream); border: 1px solid var(--line); border-radius: 4px; padding: 12px 16px; box-shadow: var(--shadow); max-width: 640px; }
+.loading .stage { font-weight: 700; }
 .loading .sub { color: var(--muted); font-size: 13px; }
+.spin { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 3px dotted var(--rust); animation: spin 1.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Memo card */
-.memo { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; width: 100%; }
-.memo section { padding: 16px 18px; border-top: 1px solid var(--border); }
-.memo section:first-child { border-top: 0; }
-.memo h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
-.hero { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: start; }
-.hero .label { color: var(--muted); font-size: 13px; }
-.hero .range { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; }
-.hero .item { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
-.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
-.badge.low { color: var(--low); background: var(--low-soft); }
-.badge.medium { color: var(--med); background: var(--med-soft); }
-.badge.high { color: var(--high); background: var(--high-soft); }
-.disclaimer { margin-top: 10px; font-size: 13px; color: var(--muted); font-style: italic; }
-.headline { font-weight: 600; margin: 0 0 8px; }
-.memo p { margin: 0 0 8px; }
-.memo ul { margin: 0; padding-left: 20px; }
-.memo li { margin: 3px 0; }
-.conf-reason { font-size: 13px; color: var(--muted); }
-a.cite { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1; padding: 3px 5px; margin: 0 1px; border-radius: 5px;
-  background: var(--accent-soft); color: var(--accent); text-decoration: none; vertical-align: 1px; font-variant-numeric: tabular-nums; }
-a.cite:hover { background: var(--accent); color: var(--accent-text); }
-.strip { width: 100%; height: auto; display: block; overflow: visible; }
-.strip text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.legend { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.funnel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
-.funnel div { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
-.funnel b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+/* Stickers */
+.sticker { display: inline-flex; align-items: center; gap: 5px; font-family: var(--type); font-weight: 700; font-size: 12.5px; line-height: 1.2;
+  padding: 4px 9px; border-radius: 999px; border: 1.5px solid currentColor; background: var(--cream); box-shadow: 1px 1.5px 0 rgba(0,0,0,.18); white-space: nowrap; }
+.sticker.low { color: var(--rust-ink); background: var(--rust-soft); }
+.sticker.medium { color: var(--mustard-ink); background: var(--mustard-soft); }
+.sticker.high { color: var(--olive-ink); background: var(--olive-soft); }
+.stickers { display: flex; flex-wrap: wrap; gap: 7px; }
+.stickers .sticker { font-weight: 400; color: var(--ink); border-color: var(--line-strong); background: var(--cream-2); white-space: normal; }
+.stickers .sticker:nth-child(3n+1) { transform: rotate(-1.2deg); }
+.stickers .sticker:nth-child(3n+2) { transform: rotate(.9deg); }
+.stickers .sticker b { color: var(--rust-ink); }
+
+/* Hang tag */
+.tagwrap { position: relative; padding: 20px 0 6px 34px; }
+.string { position: absolute; left: 0; top: 0; width: 80px; height: 70px; overflow: visible; pointer-events: none; }
+.tag {
+  position: relative; background: var(--manila); color: #2b2620; border: 1.5px solid var(--manila-edge);
+  clip-path: polygon(34px 0, 100% 0, 100% 100%, 34px 100%, 0 calc(100% - 34px), 0 34px);
+  padding: 18px 20px 18px 62px; transform: rotate(-1.6deg); transform-origin: left center; filter: drop-shadow(0 6px 10px rgba(70,50,20,.22));
+  max-width: 560px;
+}
+.tag::before { content: ""; position: absolute; left: 20px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%;
+  background: var(--paper); box-shadow: inset 0 0 0 3px #e9d39a, inset 0 0 0 4px var(--manila-edge); }
+.tag .eyebrow { font-family: var(--type); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #6a5a33; }
+.tag .price { font-family: var(--hand); font-size: 46px; line-height: 1.1; color: #8f3214; margin: 2px 0 4px; font-variant-numeric: tabular-nums; }
+.tag .item { font-family: var(--type); font-size: 13.5px; color: #4a3f2a; }
+.tag .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.tag .sticker { background: #fbf3dc; }
+.tag .sticker.low { color: #8f3214; background: #f6dccd; }
+.tag .sticker.medium { color: #6b4c08; background: #f8e7b5; }
+.tag .sticker.high { color: #3f4c1a; background: #e3e8c6; }
+.tag .btn { background: #fbf3dc; color: #2b2620; border-color: #2b2620; box-shadow: 2px 2px 0 #2b2620; }
+.tag .btn.primary { background: var(--mustard); }
+.disclaimer { font-family: var(--type); font-size: 12.5px; color: var(--muted); margin: 10px 0 0 34px; }
+
+/* Trace summary strip: a receipt line */
+.strip-link { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; width: 100%; margin: 14px 0 0; text-align: left;
+  font-family: var(--type); font-size: 13.5px; background: var(--cream); border: 1.5px dashed var(--line-strong); border-radius: 4px; padding: 8px 12px; }
+.strip-link:hover { border-color: var(--rust); border-style: solid; }
+.strip-link .go { margin-left: auto; color: var(--rust-ink); font-weight: 700; white-space: nowrap; }
+
+/* Receipt */
+.receipt { position: relative; background: var(--cream); margin-top: 16px; padding: 18px 20px 26px; box-shadow: var(--shadow); border-radius: 3px 3px 0 0; }
+.receipt::after { content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
+  background: linear-gradient(-45deg, transparent 7px, var(--cream) 0) 0 0 / 14px 10px repeat-x, linear-gradient(45deg, transparent 7px, var(--cream) 0) 0 0 / 14px 10px repeat-x; }
+.receipt h3, .section-title { font-family: var(--type); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+.headline { font-size: 17px; font-weight: 650; margin: 0 0 10px; }
+.receipt p { margin: 0 0 10px; }
+.receipt ul { margin: 0 0 4px; padding-left: 20px; }
+.receipt li { margin: 4px 0; }
+.rule { border: 0; border-top: 2px dashed var(--line-strong); margin: 14px 0; }
+.confline { font-family: var(--type); font-size: 13.5px; color: var(--muted); }
+.assumed { font-family: var(--type); font-size: 13px; background: var(--mustard-soft); border-left: 4px solid var(--mustard); padding: 7px 10px; margin-top: 12px; }
+.cites { white-space: nowrap; }
+a.cite { display: inline-block; font-family: var(--type); font-size: 11.5px; font-weight: 700; line-height: 1; padding: 2px 5px; border-radius: 3px;
+  background: var(--olive-soft); color: var(--olive-ink); border: 1px solid var(--olive); text-decoration: none; vertical-align: 1px; }
+a.cite:hover { background: var(--olive); color: var(--cream); }
+.cites .sep { color: var(--muted); font-size: 11px; padding: 0 2px; }
+
+/* Draft listing */
+.draft { margin-top: 16px; background: var(--cream-2); border: 1.5px solid var(--line-strong); border-radius: 4px; padding: 14px 16px; }
+.draft .dtitle { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+.draft .count { font-family: var(--type); font-size: 12px; color: var(--muted); }
+.draft pre { font-family: var(--type); font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--cream); border: 1px solid var(--line); padding: 10px 12px; border-radius: 3px; margin: 8px 0; }
+.draft .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Collapsible sections */
+details.fold { background: var(--cream); border: 1px solid var(--line); border-radius: 4px; margin-top: 12px; box-shadow: var(--shadow); }
+details.fold > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "+"; font-family: var(--type); font-weight: 700; color: var(--rust-ink); width: 12px; }
+details.fold[open] > summary::before { content: "–"; }
+details.fold > summary .section-title { margin: 0; }
+details.fold > summary .peek { font-family: var(--type); font-size: 13px; color: var(--muted); }
+.foldbody { padding: 0 16px 16px; }
+
+.funnel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 12px; }
+.funnel div { font-family: var(--type); background: var(--cream-2); border: 1px dashed var(--line-strong); border-radius: 4px; padding: 8px 10px; }
+.funnel b { display: block; font-size: 22px; }
 .funnel span { font-size: 12px; color: var(--muted); }
-.reasons { display: flex; flex-wrap: wrap; gap: 6px; }
-.reasons span { font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; }
-.reasons span b { font-variant-numeric: tabular-nums; }
-.tablewrap { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
-th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-td.title { min-width: 160px; }
-td.title a { color: var(--text); text-decoration: none; }
-td.title a:hover { color: var(--accent); text-decoration: underline; }
-.tag { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 4px; white-space: nowrap; }
-.note { background: var(--warn-soft); color: var(--text); border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
-.ratio { font-size: 14px; margin-bottom: 10px; }
-.ratio b { font-variant-numeric: tabular-nums; }
-.showall { margin-top: 8px; }
-details.trace summary, details.sources summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600; }
-details.trace[open] summary, details.sources[open] summary { margin-bottom: 8px; }
-.step { border-left: 2px solid var(--border); padding: 4px 0 4px 10px; margin: 4px 0; font-size: 13px; }
-.step .who { font-weight: 600; }
-.step .kind { font-size: 11px; border-radius: 4px; padding: 0 5px; margin-left: 6px; }
-.step .kind.tool { background: var(--accent-soft); color: var(--accent); }
-.step .kind.step { background: var(--surface-2); color: var(--muted); }
-.step details summary { font-weight: 400; color: var(--muted); font-size: 12px; }
-.step pre { background: var(--surface-2); border-radius: 8px; padding: 8px; font-size: 11.5px; overflow-x: auto; max-height: 260px; margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.srclist { margin: 0; padding: 0; list-style: none; font-size: 13px; }
-.srclist li { padding: 4px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
-.srclist li:target { background: var(--accent-soft); }
-.meta { font-size: 12px; color: var(--muted); }
+.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { font-family: var(--type); font-size: 12px; fill: var(--muted); }
+.chart .lbl { fill: var(--ink); }
+.chart .you { fill: var(--rust-ink); font-weight: 700; }
+.legend { font-family: var(--type); font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
 
-footer { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg) 30%); padding-top: 12px; }
-form { max-width: 880px; margin: 0 auto; padding: 0 16px 14px; display: flex; gap: 8px; }
-textarea { flex: 1; min-width: 0; resize: none; font: inherit; color: var(--text); background: var(--surface);
-  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; min-height: 44px; max-height: 160px; box-shadow: var(--shadow); }
-textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.send { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 12px; padding: 0 18px; font-weight: 600; }
-.send:disabled { opacity: .5; cursor: default; }
-@media (max-width: 560px) {
-  .hero { grid-template-columns: 1fr; }
-  .hero .badge { justify-self: start; }
-  .hero .range { font-size: 28px; }
-  .bar p { display: none; }
-  .msg.user { max-width: 90%; }
-  .funnel b { font-size: 17px; }
-  .memo section { padding: 14px; }
-  .tablewrap { margin: 0 -14px; padding: 0 14px; }
+.tablewrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px dashed var(--line-strong); vertical-align: middle; }
+th { font-family: var(--type); color: var(--muted); font-weight: 700; font-size: 12px; white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--type); white-space: nowrap; }
+td.title { min-width: 160px; }
+td.title a { color: var(--ink); text-decoration: none; }
+td.title a:hover { color: var(--rust-ink); text-decoration: underline; }
+.thumb { width: 46px; height: 46px; border-radius: 3px; object-fit: cover; display: block; background: var(--cream-2); border: 1px solid var(--line); }
+.mini { font-family: var(--type); font-size: 11px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 3px; padding: 0 4px; margin-left: 4px; white-space: nowrap; }
+.ratio { margin-bottom: 10px; }
+.srclist { margin: 0; padding: 0; list-style: none; font-size: 13.5px; }
+.srclist li { padding: 6px 0; border-bottom: 1px dashed var(--line-strong); overflow-wrap: anywhere; }
+.meta { font-family: var(--type); font-size: 12.5px; color: var(--muted); }
+.warn { font-family: var(--type); font-size: 13px; background: var(--rust-soft); border-left: 4px solid var(--rust); padding: 7px 10px; margin-bottom: 10px; }
+
+/* Trace card */
+details.trace { margin-top: 16px; background: var(--cream); border: 2px solid var(--ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--line-strong); scroll-margin-top: 80px; }
+details.trace > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 2px solid transparent; }
+details.trace[open] > summary { border-bottom-color: var(--ink); }
+details.trace > summary::-webkit-details-marker { display: none; }
+details.trace > summary h3 { font-family: var(--hand); font-weight: 400; font-size: 21px; margin: 0; color: var(--rust-ink); }
+details.trace > summary .peek { font-family: var(--type); font-size: 13px; color: var(--muted); }
+details.trace > summary .chev { margin-left: auto; font-family: var(--type); font-weight: 700; color: var(--rust-ink); }
+.tracebody { padding: 14px 16px 16px; }
+.trace-note { font-family: var(--type); font-size: 13px; background: var(--mustard-soft); border-left: 4px solid var(--mustard); padding: 7px 10px; margin-bottom: 14px; }
+.group { margin-bottom: 14px; }
+.group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.agent { font-family: var(--type); font-weight: 700; font-size: 12.5px; padding: 3px 9px; border-radius: 3px; border: 1.5px solid currentColor; }
+.agent.lead { color: var(--rust-ink); background: var(--rust-soft); }
+.agent.exact_comps { color: var(--olive-ink); background: var(--olive-soft); }
+.agent.condition_tiers { color: var(--denim); background: var(--denim-soft); }
+.agent.retail { color: var(--mustard-ink); background: var(--mustard-soft); }
+.agent.writer { color: var(--plum); background: var(--plum-soft); }
+.entry { border-left: 3px solid var(--line-strong); margin: 0 0 6px 6px; padding: 3px 0 3px 10px; font-size: 13.5px; }
+.entry.tool { border-left-color: var(--olive); }
+.entry .name { font-family: var(--type); font-weight: 700; }
+.kind { font-family: var(--type); font-size: 11px; font-weight: 700; border-radius: 3px; padding: 1px 6px; margin-left: 6px; text-transform: uppercase; letter-spacing: .05em; }
+.kind.tool { background: var(--olive); color: var(--cream); }
+.kind.step { background: transparent; color: var(--muted); border: 1px solid var(--line-strong); }
+.entry details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.entry pre { font-family: var(--type); font-size: 12px; background: var(--cream-2); border: 1px solid var(--line); border-radius: 3px; padding: 8px; max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0; }
+.mini-trace { margin-top: 8px; font-family: var(--type); font-size: 12.5px; color: var(--muted); }
+
+/* Replay */
+.replay { background: var(--cream); border: 2px solid var(--ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--line-strong); padding: 14px 16px; }
+.replay-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.replay-head h3 { font-family: var(--hand); font-weight: 400; font-size: 20px; margin: 0; color: var(--rust-ink); }
+.replay-head a { margin-left: auto; font-family: var(--type); font-size: 13px; }
+.rcard { font-family: var(--type); font-size: 13px; background: var(--cream-2); border: 1.5px solid var(--line-strong); border-radius: 4px; padding: 9px 11px;
+  opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
+.rcard.on { opacity: 1; transform: none; }
+.rcard .agent { display: inline-block; margin-bottom: 5px; }
+.rcard .q { color: var(--muted); overflow-wrap: anywhere; }
+.rcard .n { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.rcard .meter { height: 6px; background: var(--line); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+.rcard .meter i { display: block; height: 100%; width: 0; background: var(--olive); transition: width .8s ease-out; }
+.rgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.rarrow { text-align: center; font-family: var(--type); color: var(--muted); font-size: 12px; opacity: 0; transition: opacity .3s; }
+.rarrow.on { opacity: 1; }
+
+/* Composer */
+footer { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--paper) 35%); padding-top: 14px; }
+form { max-width: 900px; margin: 0 auto; padding: 0 16px 14px; display: flex; gap: 8px; }
+textarea { flex: 1; min-width: 0; resize: none; font: inherit; color: var(--ink); background: var(--cream); border: 1.5px solid var(--ink); border-radius: 6px;
+  padding: 10px 12px; min-height: 46px; max-height: 160px; box-shadow: 2px 2px 0 var(--ink); }
+textarea::placeholder { color: var(--muted); }
+form .btn { padding: 0 18px; font-size: 15px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation-duration: 4s; }
+  .rcard, .rarrow, .rcard .meter i { transition: none; }
+}
+@media (max-width: 600px) {
+  .tagline { display: none; }
+  .logo { font-size: 24px; }
+  .tagwrap { padding-left: 22px; }
+  .tag { padding: 16px 14px 16px 54px; }
+  .tag .price { font-size: 38px; }
+  .disclaimer { margin-left: 22px; }
+  .receipt { padding: 16px 14px 24px; }
+  .rgrid { grid-template-columns: 1fr; }
   .hide-sm { display: none; }
+  .funnel b { font-size: 18px; }
+  .msg.user { max-width: 90%; }
+  .strip-link .go { margin-left: 0; }
 }
 </style>
 </head>
@@ -160,11 +294,11 @@ textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline
 <header>
   <div class="bar">
     <div class="grow">
-      <h1>Resale Price Research</h1>
-      <p>A competitive asking price from live eBay listings and retail prices, with sources.</p>
+      <p class="logo">Rummage<span class="dot">.</span></p>
+      <div class="tagline">fair asking prices for secondhand finds</div>
     </div>
-    <button class="ghost" id="theme" type="button" aria-label="Toggle dark mode">Theme</button>
-    <button class="ghost" id="reset" type="button">New item</button>
+    <button class="btn" id="theme" type="button" aria-label="Switch light or dark theme">Theme</button>
+    <button class="btn" id="reset" type="button">New item</button>
   </div>
 </header>
 
@@ -174,61 +308,81 @@ textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline
 
 <footer>
   <form id="form">
-    <textarea id="input" rows="1" placeholder="Describe the item and its condition" aria-label="Message"></textarea>
-    <button class="send" id="send" type="submit">Send</button>
+    <label class="sr" for="input">Describe your item</label>
+    <textarea id="input" rows="1" placeholder="Describe the item and its condition"></textarea>
+    <button class="btn primary" id="send" type="submit">Price it</button>
   </form>
 </footer>
 
 <script>
 const log = document.getElementById("log");
-const form = document.getElementById("form");
 const input = document.getElementById("input");
 const send = document.getElementById("send");
 let sessionId = null;
 let busy = false;
+let answers = 0;  // memos shown this session: the first one opens its trace
 
 const EXAMPLES = [
   "Used AirPods Pro 2, good condition, with charging case",
   "iPhone 13 Pro 128GB unlocked, used with light scratches",
   "I want to sell my iPhone",
 ];
+const AGENTS = {
+  lead: { label: "Lead", cls: "lead" },
+  "researcher:exact_comps": { label: "Researcher · exact comps", cls: "exact_comps" },
+  "researcher:condition_tiers": { label: "Researcher · condition tiers", cls: "condition_tiers" },
+  "researcher:retail": { label: "Researcher · retail", cls: "retail" },
+  writer: { label: "Writer", cls: "writer" },
+};
+const CONDITIONS = { new: "New", open_box: "Open box", like_new: "Like new", used: "Used", refurbished: "Refurbished", for_parts: "For parts" };
 
 // --- helpers ---
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = x => x == null ? "?" : "$" + Number(x).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const money0 = x => x == null ? "?" : "$" + Math.round(x).toLocaleString("en-US");
+const price = x => x == null ? "?" : Number.isInteger(+x) ? "$" + Number(x).toLocaleString("en-US") : money(x);
+const plural = (n, word, many = word + "s") => `${n} ${n === 1 ? word : many}`;
+const json = s => { try { return typeof s === "string" ? JSON.parse(s) : s; } catch { return null; } };
+const agentInfo = a => AGENTS[a] || { label: a, cls: a.startsWith("researcher") ? "exact_comps" : "lead" };
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }
+function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: reduced ? "auto" : "smooth" }); }
+async function copy(text, btn, label) {
+  try { await navigator.clipboard.writeText(text); btn.textContent = "Copied!"; }
+  catch { btn.textContent = "Copy failed"; }
+  setTimeout(() => { btn.textContent = label; }, 1500);
+}
 
-// [E12] / [R3] -> a link to the listing, with its title on hover. Text is escaped first.
-function cite(text, memo) {
-  const lookup = id => memo.sources?.[id] || (memo.comps || []).find(c => c.id === id) || (memo.retail || []).find(r => r.id === id);
-  return esc(text).replace(/\[([ER]\d+)\]/g, (m, id) => {
-    const s = lookup(id);
-    if (!s) return "";
-    const tip = `${s.title} · ${money(s.price)}`;
-    return `<a class="cite" href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(tip)}">${id}</a>`;
+// [E2][E8] -> two links with a separator. Text is escaped first; unknown ids are dropped.
+function cite(text, m) {
+  const find = id => m.sources?.[id] || (m.comps || []).find(c => c.id === id) || (m.retail || []).find(r => r.id === id);
+  return esc(text).replace(/(?:\[[ER]\d+\]\s*)+/g, run => {
+    const links = (run.match(/[ER]\d+/g) || []).filter((id, i, all) => all.indexOf(id) === i).map(id => {
+      const s = find(id);
+      return s ? `<a class="cite" href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(`${s.title} · ${money(s.price)}`)}">${id}</a>` : "";
+    }).filter(Boolean);
+    const trailing = /\s$/.test(run) ? " " : "";
+    return links.length ? `<span class="cites">${links.join('<span class="sep">,</span>')}</span>${trailing}` : trailing;
   });
 }
 
 // --- chat log ---
-function addUser(text) { log.append(el("div", "msg user", esc(text))); scrollDown(); }
+function addUser(text) { const m = el("div", "msg user"); m.append(el("div", "note-user", esc(text))); log.append(m); scrollDown(); }
 function addBot(node) { const m = el("div", "msg bot"); m.append(node); log.append(m); scrollDown(); return m; }
-function addText(text, cls = "") { return addBot(el("div", "bubble " + cls, esc(text))); }
+function addText(text, cls = "") { return addBot(el("div", "card-text " + cls, esc(text))); }
 
-function welcome() {
-  const w = el("div", "welcome");
-  w.innerHTML = `<h2>Price your secondhand item</h2>
-    <p class="lead"><b>For casual resellers</b> listing an item on eBay, Mercari or Facebook Marketplace.
-    This agent suggests a <b>competitive asking price</b>: researchers check active eBay listings and current retail
-    prices in parallel, filter out accessories, parts and other models, and a writer drafts a short memo that cites every listing it used.</p>
-    <ol class="howto">
+function intro() {
+  const w = el("div", "intro");
+  w.innerHTML = `<h2>What are you selling?</h2>
+    <p><b>Rummage is for casual resellers</b> putting an item up on eBay, Mercari or Facebook Marketplace. It suggests a
+    <b>competitive asking price</b>: researchers check live eBay listings and current retail prices in parallel, toss out
+    accessories, parts and other models, and a writer drafts a short memo that cites every listing it used.</p>
+    <ol>
       <li><b>Describe the item:</b> brand and model, plus storage, carrier or size if it changes the price.</li>
       <li><b>Say its condition</b> (new, open box, used with light scratches, for parts) and what's included.</li>
-      <li><b>Wait about 30 seconds.</b> If a detail is missing, it asks you first.</li>
+      <li><b>Give it about 30 seconds.</b> If a detail is missing, it asks you first.</li>
     </ol>
-    <p class="fine">It's an asking-price suggestion from active listings, not a prediction of what the item will sell for.</p>
-    <div class="meta" style="margin-bottom:6px">Try an example:</div>`;
+    <p class="fine">An asking-price suggestion from active listings, not a prediction of what it will sell for.</p>
+    <div class="fine" style="margin-bottom:2px">Try one:</div>`;
   const chips = el("div", "chips");
   for (const ex of EXAMPLES) {
     const b = el("button", "chip", esc(ex));
@@ -243,14 +397,13 @@ function welcome() {
 // No streaming: the stage text follows the pipeline's usual timing while /chat runs.
 const STAGES = [
   [0, "Reading your item", "Checking it's specific enough to price"],
-  [3, "Researchers are searching", "Active eBay listings in your condition, other conditions, and new retail prices, in parallel"],
-  [10, "Filtering comparables", "Dropping accessories, parts, lots and other variants, then reviewing every title"],
-  [20, "Writing the memo", "Drafting the price range and checking every citation against the sources"],
-  [45, "Filling gaps", "Too few comps or no retail price: researchers are broadening the search"],
+  [3, "Rummaging through listings", "Three researchers search eBay and retail at the same time"],
+  [10, "Sorting the pile", "Tossing accessories, parts, lots and other models, then reviewing every title"],
+  [20, "Writing the tag", "Drafting the memo and checking every citation"],
+  [45, "Digging deeper", "Too few comps or no retail price: researchers are broadening the search"],
 ];
 function loading() {
-  const box = el("div", "bubble loading");
-  box.innerHTML = `<div class="spinner" role="status" aria-label="Researching"></div><div><div class="stage"></div><div class="sub"></div></div>`;
+  const box = el("div", "loading", `<div class="spin" role="status" aria-label="Researching"></div><div><div class="stage"></div><div class="sub"></div></div>`);
   const node = addBot(box);
   const start = Date.now();
   const tick = () => {
@@ -274,19 +427,20 @@ async function ask(text) {
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 295000);
   try {
-    const res = await fetch("/chat", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, session_id: sessionId }), signal: abort.signal,
-    });
-    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const res = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, session_id: sessionId }), signal: abort.signal });
+    if (!res.ok) throw new Error(`server returned ${res.status}`);
     const data = await res.json();
     sessionId = data.session_id;
     done();
-    if (data.memo) addBot(renderMemo(data.memo, data.tool_calls));
-    else {
+    if (data.memo) {
+      answers += 1;
+      await replay(data.tool_calls, data.memo);
+      addBot(renderMemo(data.memo, data.tool_calls, answers === 1));
+    } else {
       const failed = data.response.startsWith("Research failed");
       const m = addText(data.response, failed ? "error" : "");
-      if (data.tool_calls?.length && !failed) m.append(renderTrace(data.tool_calls));
+      if (!failed && data.tool_calls?.length) m.append(el("div", "mini-trace", `How I researched this: ${plural(data.tool_calls.length, "step")}, ${plural(data.tool_calls.filter(c => c.type === "tool").length, "tool call")}. I need a bit more before I can price it.`));
     }
   } catch (e) {
     done();
@@ -297,116 +451,201 @@ async function ask(text) {
   }
 }
 
-// --- memo card ---
-function renderMemo(m, calls) {
-  const card = el("article", "memo");
-  const item = m.item || {};
-  const itemLine = [item.product, item.variant, item.condition?.replace("_", " "), item.condition_detail].filter(Boolean).join(" · ");
-
-  // price + confidence
-  card.append(el("section", "", `
-    <div class="hero">
-      <div><div class="label">Suggested asking price</div>
-        <div class="range">${money0(m.price_low)} – ${money0(m.price_high)}</div></div>
-      <span class="badge ${esc(m.confidence)}">${esc(m.confidence)} confidence</span>
-      <div class="item">${esc(itemLine)}</div>
-    </div>
-    <div class="disclaimer">A competitive asking price from active listings, not a prediction of what it will sell for.</div>`));
-
-  // the memo text
-  const s = el("section");
-  s.innerHTML = `<p class="headline">${cite(m.headline, m)}</p><p>${cite(m.rationale, m)}</p>
-    <p class="conf-reason"><b>Confidence:</b> ${cite(m.confidence_reason, m)}</p>`;
-  if (m.key_factors?.length) s.innerHTML += `<h3 style="margin-top:12px">Key factors</h3><ul>${m.key_factors.map(k => `<li>${cite(k, m)}</li>`).join("")}</ul>`;
-  if (m.assumptions?.length) s.innerHTML += `<div class="note" style="margin:12px 0 0"><b>Assumed:</b> ${m.assumptions.map(esc).join(" ")}</div>`;
-  card.append(s);
-
-  // comps: strip chart, funnel, exclusions, table
-  const c = el("section");
-  c.innerHTML = `<h3>Comparable listings</h3>${strip(m)}
-    <div class="funnel">
-      <div><b>${m.comps_found}</b><span>found on eBay</span></div>
-      <div><b>${m.comps_after_title_filter}</b><span>after title filter</span></div>
-      <div><b>${m.comps_kept}</b><span>kept after review</span></div>
-    </div>`;
-  const reasons = Object.entries(m.excluded_summary || {});
-  if (reasons.length) c.innerHTML += `<div class="meta" style="margin-bottom:6px">Excluded and why</div>
-    <div class="reasons" style="margin-bottom:12px">${reasons.map(([r, n]) => `<span><b>${n}</b> ${esc(r)}</span>`).join("")}</div>`;
-  c.append(compsTable(m));
-  card.append(c);
-
-  // condition tiers
-  if (m.condition_tiers?.length) {
-    card.append(el("section", "", `<h3>Price by condition (active listings)</h3><div class="tablewrap"><table>
-      <thead><tr><th>Condition</th><th class="num">Listings</th><th class="num">Median</th><th class="num">Middle half</th></tr></thead>
-      <tbody>${m.condition_tiers.map(t => `<tr><td>${esc(t.condition.replace("_", " "))}</td><td class="num">${t.n}</td>
-        <td class="num">${money(t.median)}</td><td class="num">${money(t.q1)} – ${money(t.q3)}</td></tr>`).join("")}</tbody></table></div>`));
+// --- trace replay: Lead -> researchers side by side -> Writer, then the memo ---
+function researcherRuns(calls) {
+  const runs = [];
+  let round = 0;
+  const open = {};
+  for (const c of calls) {
+    if (c.agent === "lead" && c.name.startsWith("dispatch_researchers")) round += 1;
+    if (!c.agent.startsWith("researcher")) continue;
+    const r = json(c.result) || {};
+    if (c.name.startsWith("search_")) {
+      const lines = Object.values(r.listings_to_review || {}).flat().length + (r.offers_to_review || []).length;
+      open[c.agent] = { agent: c.agent, round: Math.max(round, 1), query: c.args?.query || "", found: lines + (r.dropped_in_code || []).length };
+    } else if (c.name.startsWith("review_listings")) {
+      const run = open[c.agent] || { agent: c.agent, round: Math.max(round, 1), query: "", found: r.n_before_review };
+      run.kept = r.n_kept;
+      runs.push(run);
+      delete open[c.agent];
+    }
   }
-
-  // retail
-  const r = el("section", "", "<h3>Retail (new)</h3>");
-  const ref = m.retail_reference;
-  if (ref) {
-    const model = ref.successor ? "the successor model's " : "";
-    const link = `<a class="cite" href="${esc((m.retail.find(x => x.id === ref.id) || m.sources?.[ref.id] || {}).url)}" target="_blank" rel="noopener">${ref.id}</a>`;
-    r.innerHTML += ref.role === "premium"
-      ? `<div class="ratio">Resale premium: used listings ask <b>${ref.resale_to_retail_ratio.toFixed(2)}×</b> ${model}lowest new price (${money(ref.comp_median)} vs ${money(ref.price)} ${link}), so the price comes from comps alone.</div>`
-      : `<div class="ratio">Resale-to-retail ratio <b>${ref.resale_to_retail_ratio?.toFixed(2) ?? "?"}</b>: comps sit below ${model}lowest new price, ${money(ref.price)} at ${esc(ref.retailer)} ${link}, which acts as a ceiling.</div>`;
-    if (ref.successor) r.innerHTML += `<div class="note">No current retail price for this exact model; the reference is its successor, a looser ceiling.</div>`;
-  }
-  if (m.retail?.length) {
-    r.innerHTML += `<div class="tablewrap"><table><thead><tr><th>Source</th><th>Retailer</th><th>Offer</th><th class="num">Price</th><th class="num">Was</th></tr></thead>
-      <tbody>${m.retail.map(x => `<tr><td>${cite(`[${x.id}]`, m)}</td><td>${esc(x.retailer)}</td><td class="title"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></td>
-        <td class="num">${money(x.price)}</td><td class="num">${x.old_price ? money(x.old_price) : ""}</td></tr>`).join("")}</tbody></table></div>`;
-  } else {
-    r.innerHTML += `<p class="meta">${m.no_new_retail_found
-      ? "No new retail found: Google Shopping returned only resale listings, so the item is likely discontinued. The price comes from comps alone."
-      : "No current new retail price found: the item may be discontinued. The price comes from comps alone."}</p>`;
-  }
-  card.append(r);
-
-  // limitations
-  card.append(el("section", "", `<h3>Limitations</h3><ul>${(m.limitations || []).map(x => `<li>${cite(x, m)}</li>`).join("")}</ul>`));
-
-  // sources + citation check + trace
-  const f = el("section");
-  const srcs = Object.entries(m.sources || {});
-  const check = m.citation_check || {};
-  f.innerHTML = `<details class="sources"><summary>Sources (${srcs.length}) · citation check: ${check.cited?.length ?? 0} cited, ${check.unknown_tags_stripped?.length ?? 0} invalid removed${check.warnings?.length ? `, ${check.warnings.length} warning(s)` : ""}</summary>
-    ${check.warnings?.length ? `<div class="note">${check.warnings.map(esc).join("<br>")}</div>` : ""}
-    <ul class="srclist">${srcs.map(([id, s]) => `<li><a class="cite" href="${esc(s.url)}" target="_blank" rel="noopener">${id}</a>
-      <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a> <span class="meta">· ${esc(s.detail)} · ${money(s.price)}</span></li>`).join("")}</ul></details>`;
-  f.append(renderTrace(calls, m.rounds));
-  card.append(f);
-  return card;
+  return runs;
 }
 
-// Every kept comp as a dot on a price line, with the suggested range as a band.
-function strip(m) {
+function replay(calls, memo) {
+  const runs = researcherRuns(calls);
+  if (reduced || !runs.length) return Promise.resolve();
+  return new Promise(resolve => {
+    const box = el("div", "replay");
+    box.innerHTML = `<div class="replay-head"><h3>Rummaging…</h3><a href="#" class="skip">Skip to the price →</a></div>`;
+    const lead = calls.find(c => c.name === "assess_item");
+    const product = json(lead?.result)?.item?.product || memo.item?.product || "your item";
+    const steps = [];
+    const leadCard = el("div", "rcard", `<span class="agent lead">Lead</span><div>Read the item: <b>${esc(product)}</b>. Sent ${plural(runs.filter(r => r.round === 1).length, "researcher")} out in parallel${memo.rounds > 1 ? `, then ${plural(memo.rounds - 1, "more round")}` : ""}.</div>`);
+    box.append(leadCard);
+    steps.push(() => leadCard.classList.add("on"));
+    const rounds = [...new Set(runs.map(r => r.round))];
+    for (const rd of rounds) {
+      const arrow = el("div", "rarrow", rd === 1 ? "↓ in parallel, each in a fresh context ↓" : `↓ round ${rd}: filling gaps ↓`);
+      const grid = el("div", "rgrid");
+      box.append(arrow, grid);
+      steps.push(() => arrow.classList.add("on"));
+      const cards = runs.filter(r => r.round === rd).map(r => {
+        const info = agentInfo(r.agent);
+        const unit = r.agent.endsWith("retail") ? "offers" : "listings";
+        const card = el("div", "rcard", `<span class="agent ${info.cls}">${esc(info.label.replace("Researcher · ", ""))}</span>
+          <div class="q">"${esc(r.query)}"</div><div class="n"><span class="k">0</span> kept <span class="meta">of ${r.found ?? "?"} ${unit}</span></div><div class="meter"><i></i></div>`);
+        grid.append(card);
+        return [card, r];
+      });
+      steps.push(() => cards.forEach(([card, r], i) => setTimeout(() => {
+        card.classList.add("on");
+        card.querySelector(".meter i").style.width = r.found ? `${Math.round(100 * (r.kept || 0) / r.found)}%` : "0%";
+        countUp(card.querySelector(".k"), r.kept || 0, 700);
+      }, i * 140)));
+    }
+    const writerArrow = el("div", "rarrow", "↓");
+    const check = memo.citation_check || {};
+    const writer = el("div", "rcard", `<span class="agent writer">Writer</span><div>Drafted the memo from ${plural(memo.comps_kept, "kept comp")}; ${plural(check.cited?.length || 0, "citation")} checked against the sources.</div>`);
+    box.append(writerArrow, writer);
+    steps.push(() => { writerArrow.classList.add("on"); writer.classList.add("on"); });
+    const node = addBot(box);
+
+    // about 2.6s in all, whatever the number of rounds
+    const gap = 2600 / (steps.length + 1);
+    const timers = steps.map((s, i) => setTimeout(() => { s(); scrollDown(); }, 150 + i * gap));
+    const finish = () => { timers.forEach(clearTimeout); clearTimeout(end); node.remove(); resolve(); };
+    const end = setTimeout(finish, 150 + steps.length * gap + 500);
+    box.querySelector(".skip").onclick = e => { e.preventDefault(); finish(); };
+  });
+}
+function countUp(node, to, ms) {
+  const start = performance.now();
+  const step = t => { const k = Math.min(1, (t - start) / ms); node.textContent = Math.round(to * k); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+// --- memo ---
+function renderMemo(m, calls, openTrace) {
+  const wrap = el("article", "memo");
+  const item = m.item || {};
+  const range = `${price(m.price_low)} – ${price(m.price_high)}`;
+  const itemLine = [item.product, item.variant, CONDITIONS[item.condition] || item.condition, item.condition_detail].filter(Boolean).join(" · ");
+
+  // hang tag
+  const tagwrap = el("div", "tagwrap");
+  tagwrap.innerHTML = `<svg class="string" viewBox="0 0 80 70" aria-hidden="true"><path d="M4 2 C 20 30, 30 48, 62 ${64}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="1 0"/></svg>
+    <div class="tag">
+      <div class="eyebrow">Suggested asking price</div>
+      <div class="price">${range}</div>
+      <div class="item">${esc(itemLine)}</div>
+      <div class="row">
+        <span class="sticker ${esc(m.confidence)}">${esc(m.confidence)} confidence</span>
+        <button class="btn copy" type="button">Copy price</button>
+        <button class="btn primary drafter" type="button">Draft my listing</button>
+      </div>
+    </div>`;
+  wrap.append(tagwrap, el("div", "disclaimer", "A competitive asking price from active listings, not a prediction of what it will sell for."));
+  const copyBtn = tagwrap.querySelector(".copy");
+  copyBtn.onclick = () => copy(range.replace(" – ", "–"), copyBtn, "Copy price");
+
+  // trace summary strip, right under the tag
+  const researchers = calls.find(c => c.name.startsWith("dispatch_researchers"))?.args?.briefs?.length || researcherRuns(calls).filter(r => r.round === 1).length;
+  const tools = calls.filter(c => c.type === "tool").length;
+  const stripBtn = el("button", "strip-link", `<span>🔍 ${plural(researchers, "researcher")} in parallel</span><span>· ${plural(tools, "tool call")}</span>
+    <span>· ${plural(m.rounds || 1, "round")}</span><span>· ${m.comps_kept} of ${m.comps_found} listings kept</span><span class="go">How I researched this ↓</span>`);
+  stripBtn.type = "button";
+  wrap.append(stripBtn);
+
+  // receipt: headline, rationale, key factors stay visible
+  const r = el("div", "receipt");
+  r.innerHTML = `<p class="headline">${cite(m.headline, m)}</p><p>${cite(m.rationale, m)}</p>
+    <p class="confline">Confidence: ${esc(m.confidence)}. ${cite(m.confidence_reason, m)}</p>
+    <hr class="rule"><h3>Key factors</h3><ul>${(m.key_factors || []).map(k => `<li>${cite(k, m)}</li>`).join("")}</ul>
+    ${m.assumptions?.length ? `<div class="assumed"><b>Assumed:</b> ${m.assumptions.map(esc).join(" ")}</div>` : ""}
+    <hr class="rule"><h3>Limitations</h3><ul>${(m.limitations || []).map(x => `<li>${cite(x, m)}</li>`).join("")}</ul>`;
+  const draftSlot = el("div");
+  r.append(draftSlot);
+  wrap.append(r);
+  const drafter = tagwrap.querySelector(".drafter");
+  drafter.onclick = () => draftListing(m, drafter, draftSlot);
+
+  // folded sections
+  wrap.append(compsSection(m), conditionSection(m), retailSection(m), sourcesSection(m));
+  const trace = traceSection(calls, m, openTrace);
+  wrap.append(trace);
+  stripBtn.onclick = () => { trace.open = true; trace.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); };
+  return wrap;
+}
+
+function fold(title, peek, body) {
+  const d = el("details", "fold");
+  d.innerHTML = `<summary><h3 class="section-title">${title}</h3><span class="peek">${peek}</span></summary>`;
+  const b = el("div", "foldbody");
+  if (typeof body === "string") b.innerHTML = body; else b.append(body);
+  d.append(b);
+  return d;
+}
+
+function compsSection(m) {
+  const body = el("div");
+  // "different colorway: picante red" and "different colorway: brown" -> one sticker, details on hover
+  const groups = {};
+  for (const [why, n] of Object.entries(m.excluded_summary || {})) {
+    const key = why.split(":")[0].trim();
+    (groups[key] ||= { n: 0, details: [] }).n += n;
+    if (why.includes(":")) groups[key].details.push(`${n}× ${why.split(":").slice(1).join(":").trim()}`);
+  }
+  const reasons = Object.entries(groups).sort((a, b) => b[1].n - a[1].n).map(([why, g]) => [why, g.n, g.details]);
+  const excludedN = reasons.reduce((a, [, n]) => a + n, 0);
+  body.innerHTML = `${priceStrip(m)}
+    <div class="funnel"><div><b>${m.comps_found}</b><span>found on eBay</span></div><div><b>${m.comps_after_title_filter}</b><span>after title filter</span></div><div><b>${m.comps_kept}</b><span>kept after review</span></div></div>
+    ${reasons.length ? `<div class="meta" style="margin-bottom:6px">Tossed out (${excludedN}) and why</div><div class="stickers" style="margin-bottom:14px">${reasons.map(([why, n, details]) => `<span class="sticker" title="${esc(details.join(", "))}"><b>${n}</b> ${esc(why)}</span>`).join("")}</div>` : ""}`;
+  body.append(compsTable(m));
+  return fold("Comparable listings", `${m.comps_kept} kept of ${m.comps_found} · ${plural(excludedN, "tossed", "tossed")}`, body);
+}
+
+function compsTable(m) {
+  const wrap = el("div");
+  const rows = m.comps || [];
+  const LIMIT = 10;
+  const row = c => `<tr><td>${c.image ? `<img class="thumb" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="thumb"></div>`}</td>
+    <td class="title"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a> ${cite(`[${c.id}]`, { sources: { [c.id]: c } })}${c.best_offer ? '<span class="mini">best offer</span>' : ""}</td>
+    <td class="num hide-sm">${money(c.price)}</td><td class="num hide-sm">${c.shipping == null ? "?" : c.shipping === 0 ? "free" : money(c.shipping)}</td><td class="num">${money(c.total)}</td></tr>`;
+  const spread = rows.length <= LIMIT ? rows : Array.from({ length: LIMIT }, (_, i) => rows[Math.round(i * (rows.length - 1) / (LIMIT - 1))]);
+  const draw = list => `<div class="tablewrap"><table><thead><tr><th><span class="sr">Photo</span></th><th>Listing</th>
+    <th class="num hide-sm">Price</th><th class="num hide-sm">Ship</th><th class="num">Total</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`;
+  wrap.innerHTML = (rows.length > LIMIT ? `<div class="meta" style="margin-bottom:4px">${LIMIT} of ${rows.length}, spread from cheapest to priciest</div>` : "") + draw(spread);
+  if (rows.length > LIMIT) {
+    const b = el("button", "btn", `Show all ${rows.length}`);
+    b.type = "button"; b.style.marginTop = "10px";
+    b.onclick = () => { wrap.innerHTML = draw(rows); };
+    wrap.append(b);
+  }
+  return wrap;
+}
+
+// every kept comp on a price line, with the suggested range as a band
+function priceStrip(m) {
   const comps = (m.comps || []).map(c => ({ ...c, x: c.total ?? c.price, known: c.total != null })).filter(c => c.x != null);
   if (!comps.length) return "";
   const xs = comps.map(c => c.x).concat([m.price_low, m.price_high]);
   let lo = Math.min(...xs), hi = Math.max(...xs);
   const pad = (hi - lo) * 0.06 || 5; lo = Math.max(0, lo - pad); hi += pad;
-  const W = innerWidth < 560 ? 340 : 640, H = 70, L = 8, R = 8, y = 34;
+  const W = innerWidth < 600 ? 340 : 640, H = 74, L = 8, R = 8, y = 36;
   const sx = v => L + (v - lo) / (hi - lo) * (W - L - R);
-  const ticks = niceTicks(lo, hi, W < 400 ? 3 : 5);
-  const dots = comps.map((c, i) => {
-    const jitter = ((i * 37) % 9 - 4) * 1.6;
-    return `<a href="${esc(c.url)}" target="_blank" rel="noopener"><circle cx="${sx(c.x).toFixed(1)}" cy="${(y + jitter).toFixed(1)}" r="4.2"
-      fill="${c.known ? "var(--dot)" : "var(--surface)"}" stroke="var(--dot)" stroke-width="1.3" fill-opacity=".75">
-      <title>${esc(c.id)}: ${esc(c.title)} · ${money(c.x)}${c.known ? " with shipping" : " (shipping unknown)"}</title></circle></a>`;
-  }).join("");
-  return `<svg class="strip" viewBox="0 0 ${W} ${H}" role="img" aria-label="Prices of ${comps.length} kept comps, with the suggested range ${money0(m.price_low)} to ${money0(m.price_high)}">
-    <rect x="${sx(m.price_low)}" y="14" width="${Math.max(2, sx(m.price_high) - sx(m.price_low))}" height="40" rx="5" fill="var(--band)"/>
-    <line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--border)"/>
-    ${ticks.map(t => `<text x="${sx(t)}" y="${H - 2}" text-anchor="middle">${money0(t)}</text>`).join("")}
+  const dots = comps.map((c, i) => `<a href="${esc(c.url)}" target="_blank" rel="noopener"><circle cx="${sx(c.x).toFixed(1)}" cy="${(y + ((i * 37) % 9 - 4) * 1.7).toFixed(1)}" r="4.4"
+      fill="${c.known ? "var(--olive)" : "var(--cream)"}" stroke="var(--olive-ink)" stroke-width="1.3" fill-opacity=".8"><title>${esc(c.id)}: ${esc(c.title)} · ${money(c.x)}</title></circle></a>`).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${comps.length} kept comps from ${money(Math.min(...comps.map(c => c.x)))} to ${money(Math.max(...comps.map(c => c.x)))}; suggested range ${price(m.price_low)} to ${price(m.price_high)}">
+    <rect x="${sx(m.price_low)}" y="16" width="${Math.max(3, sx(m.price_high) - sx(m.price_low))}" height="40" rx="3" fill="var(--band)" stroke="var(--mustard)" stroke-dasharray="3 3"/>
+    <line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line-strong)"/>
+    ${ticks(lo, hi, W < 400 ? 3 : 5).map(t => `<text x="${sx(t)}" y="${H - 2}" text-anchor="middle">${price(t)}</text>`).join("")}
     ${dots}
-    <text x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="10" text-anchor="middle" style="fill:var(--accent);font-weight:600">suggested</text>
-  </svg>
-  <div class="legend">Each dot is a kept listing, price with shipping (hollow: shipping not stated). The band is the suggested range.</div>`;
+    <text class="you" x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="11" text-anchor="middle">your range</text>
+  </svg><div class="legend">Each dot is a kept listing, price with shipping (hollow: shipping not stated).</div>`;
 }
-function niceTicks(lo, hi, n) {
+function ticks(lo, hi, n) {
   const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => s >= raw);
   const out = [];
@@ -414,81 +653,150 @@ function niceTicks(lo, hi, n) {
   return out;
 }
 
-function compsTable(m) {
-  const wrap = el("div");
-  const rows = m.comps || [];
-  const LIMIT = 10;
-  const row = c => `<tr><td>${cite(`[${c.id}]`, { ...m, sources: { ...m.sources, [c.id]: c } })}</td>
-    <td class="title"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a>${c.best_offer ? '<span class="tag">best offer</span>' : ""}</td>
-    <td class="hide-sm">${esc(c.condition)}</td><td class="num hide-sm">${money(c.price)}</td>
-    <td class="num hide-sm">${c.shipping == null ? "?" : c.shipping === 0 ? "free" : money(c.shipping)}</td><td class="num">${money(c.total)}</td></tr>`;
-  // an even spread across the range, cheapest first, until "show all"
-  const spread = rows.length <= LIMIT ? rows : Array.from({ length: LIMIT }, (_, i) => rows[Math.round(i * (rows.length - 1) / (LIMIT - 1))]);
-  const draw = list => `<div class="tablewrap"><table><thead><tr><th>Source</th><th>Listing</th><th class="hide-sm">Condition</th>
-    <th class="num hide-sm">Price</th><th class="num hide-sm">Ship</th><th class="num">Total</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`;
-  wrap.innerHTML = draw(spread);
-  if (rows.length > LIMIT) {
-    const b = el("button", "ghost showall", `Show all ${rows.length} kept comps`);
-    b.type = "button";
-    b.onclick = () => { wrap.innerHTML = draw(rows); };
-    wrap.append(b);
-  }
-  return wrap;
+// condition ladder: median by condition, the seller's tier highlighted, the suggested range as a band
+function conditionSection(m) {
+  const tiers = m.condition_tiers || [];
+  if (!tiers.length) return el("div");
+  const mine = m.item?.condition;
+  const W = innerWidth < 600 ? 340 : 640, rowH = 30, top = 18, labelW = W < 400 ? 74 : 96, valW = 64;
+  const H = top + tiers.length * rowH + 22;
+  const max = Math.max(...tiers.map(t => t.q3 ?? t.median), m.price_high) * 1.06;
+  const sx = v => labelW + v / max * (W - labelW - valW);
+  const bars = tiers.map((t, i) => {
+    const y = top + i * rowH, you = t.condition === mine;
+    return `<g><text class="${you ? "you" : "lbl"}" x="${labelW - 8}" y="${y + 15}" text-anchor="end">${esc(CONDITIONS[t.condition] || t.condition)}${you ? " ★" : ""}</text>
+      <rect x="${labelW}" y="${y + 4}" width="${Math.max(2, sx(t.median) - labelW)}" height="16" rx="2" fill="${you ? "var(--rust)" : "var(--chart-bar)"}"/>
+      <line x1="${sx(t.q1)}" x2="${sx(t.q3)}" y1="${y + 12}" y2="${y + 12}" stroke="var(--ink)" stroke-width="1.2" opacity=".55"/>
+      <text class="${you ? "you" : ""}" x="${sx(Math.max(t.median, t.q3 ?? t.median)) + 6}" y="${y + 16}">${price(Math.round(t.median))}</text>
+      <title>${esc(CONDITIONS[t.condition] || t.condition)}: median ${money(t.median)}, middle half ${money(t.q1)}–${money(t.q3)}, ${t.n} listings</title></g>`;
+  }).join("");
+  const band = `<rect x="${sx(m.price_low)}" y="${top - 6}" width="${Math.max(3, sx(m.price_high) - sx(m.price_low))}" height="${tiers.length * rowH + 6}" fill="var(--band)" stroke="var(--mustard)" stroke-dasharray="3 3"/>
+    <text class="you" x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="${top - 9}" text-anchor="middle">your range</text>`;
+  const svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Median asking price by condition; your condition is ${esc(CONDITIONS[mine] || mine)}">
+    ${band}${bars}<text x="${labelW}" y="${H - 3}">$0</text><text x="${W - valW}" y="${H - 3}" text-anchor="end">${price(Math.round(max))}</text></svg>
+    <div class="legend">Bar: median asking price; line: middle half of listings; ★ your condition.</div>`;
+  const table = `<div class="tablewrap"><table><thead><tr><th>Condition</th><th class="num">Listings</th><th class="num">Median</th><th class="num">Middle half</th></tr></thead>
+    <tbody>${tiers.map(t => `<tr><td>${esc(CONDITIONS[t.condition] || t.condition)}</td><td class="num">${t.n}</td><td class="num">${money(t.median)}</td><td class="num">${money(t.q1)}–${money(t.q3)}</td></tr>`).join("")}</tbody></table></div>`;
+  const mineRow = tiers.find(t => t.condition === mine);
+  return fold("Price by condition", mineRow ? `${esc(CONDITIONS[mine])} median ${price(Math.round(mineRow.median))}` : plural(tiers.length, "condition"), svg + table);
 }
 
-// tool_calls, in order, with the agent that made each one.
-function renderTrace(calls, rounds) {
-  const d = el("details", "trace");
-  const tools = calls.filter(c => c.type === "tool").length;
-  d.innerHTML = `<summary>How this was researched: ${calls.length} steps, ${tools} tool calls${rounds ? `, ${rounds} research round${rounds > 1 ? "s" : ""}` : ""}</summary>`;
-  for (const c of calls) {
-    const s = el("div", "step");
-    const args = typeof c.args === "string" ? c.args : JSON.stringify(c.args, null, 1);
-    let result = c.result;
-    try { result = JSON.stringify(JSON.parse(c.result), null, 1); } catch {}
-    s.innerHTML = `<span class="who">${esc(c.agent)}</span> → ${esc(c.name)}<span class="kind ${c.type === "tool" ? "tool" : "step"}">${esc(c.type || "tool")}</span>
-      <details><summary>${esc(summarize(c))}</summary><pre>${esc(args)}</pre><pre>${esc(result ?? "")}</pre></details>`;
-    d.append(s);
+function retailSection(m) {
+  const ref = m.retail_reference;
+  let body = "", peek;
+  if (ref) {
+    const model = ref.successor ? "the successor model's " : "";
+    const link = cite(`[${ref.id}]`, m);
+    const x = ref.resale_to_retail_ratio;
+    body += ref.role === "premium"
+      ? `<p class="ratio"><span class="sticker medium">resale premium</span> Used listings ask <b>${x.toFixed(2)}×</b> ${model}lowest new price (${money(ref.comp_median)} vs ${money(ref.price)} ${link}), so the price comes from comps alone.</p>`
+      : `<p class="ratio">Resale-to-retail ratio <b>${x?.toFixed(2) ?? "?"}</b>: comps sit below ${model}lowest new price, ${money(ref.price)} at ${esc(ref.retailer)} ${link}, which acts as a ceiling.</p>`;
+    if (ref.successor) body += `<p class="meta">No current retail price for this exact model, so this is its successor: a looser ceiling.</p>`;
+    peek = `${ref.role === "premium" ? "premium" : "ceiling"} ${money(ref.price)}${x ? ` · ratio ${x.toFixed(2)}` : ""}`;
   }
+  if (m.retail?.length) {
+    body += `<div class="tablewrap"><table><thead><tr><th>Retailer</th><th>Offer</th><th class="num">Price</th><th class="num hide-sm">Was</th></tr></thead>
+      <tbody>${m.retail.map(x => `<tr><td>${esc(x.retailer)}</td><td class="title"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a> ${cite(`[${x.id}]`, m)}</td>
+      <td class="num">${money(x.price)}</td><td class="num hide-sm">${x.old_price ? money(x.old_price) : ""}</td></tr>`).join("")}</tbody></table></div>`;
+  } else {
+    body += `<p>${m.no_new_retail_found ? "No new retail found: Google Shopping returned only resale listings, so the item is likely discontinued." : "No current new retail price found: the item may be discontinued."} The price comes from comps alone.</p>`;
+    peek = "none found";
+  }
+  return fold("Retail (new)", peek, body);
+}
+
+function sourcesSection(m) {
+  const srcs = Object.entries(m.sources || {});
+  const check = m.citation_check || {};
+  const body = `${check.warnings?.length ? `<div class="warn">${check.warnings.map(esc).join("<br>")}</div>` : ""}
+    <p class="meta">Citation check: ${plural(check.cited?.length || 0, "source")} cited, ${plural(check.unknown_tags_stripped?.length || 0, "invalid tag")} removed. Every tag links to a listing a tool returned.</p>
+    <ul class="srclist">${srcs.map(([id, s]) => `<li>${cite(`[${id}]`, m)} <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a> <span class="meta">· ${esc(s.detail)} · ${money(s.price)}</span></li>`).join("")}</ul>`;
+  return fold("Sources", `${srcs.length} · ${plural(check.cited?.length || 0, "cited", "cited")}${check.warnings?.length ? ` · ${plural(check.warnings.length, "warning")}` : ""}`, body);
+}
+
+// the research trace, grouped by agent
+function traceSection(calls, m, open) {
+  const d = el("details", "trace");
+  d.open = open;
+  const tools = calls.filter(c => c.type === "tool").length;
+  d.innerHTML = `<summary><h3>How I researched this</h3><span class="peek">${plural(calls.length, "step")} · ${plural(tools, "tool call")} · ${plural(m.rounds || 1, "round")}</span><span class="chev">show / hide</span></summary>`;
+  const body = el("div", "tracebody", `<div class="trace-note">Every number in the memo comes from these tool calls. <b>Tool</b> = an agent called it; <b>step</b> = code ran it (intake result, citation check, fallbacks).</div>`);
+  const order = ["lead", "researcher:exact_comps", "researcher:condition_tiers", "researcher:retail", "writer"];
+  const agents = [...new Set(calls.map(c => c.agent))].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  for (const a of agents) {
+    const mine = calls.filter(c => c.agent === a);
+    const info = agentInfo(a);
+    const g = el("div", "group", `<div class="group-head"><span class="agent ${info.cls}">${esc(info.label)}</span><span class="meta">${plural(mine.filter(c => c.type === "tool").length, "tool call")}${mine.some(c => c.type !== "tool") ? `, ${plural(mine.filter(c => c.type !== "tool").length, "step")}` : ""}</span></div>`);
+    for (const c of mine) {
+      const kind = c.type === "tool" ? "tool" : "step";
+      const args = typeof c.args === "string" ? c.args : JSON.stringify(c.args, null, 1);
+      const parsed = json(c.result);
+      const result = parsed ? JSON.stringify(parsed, null, 1) : (c.result ?? "");
+      g.append(el("div", `entry ${kind}`, `<span class="name">${esc(c.name)}</span><span class="kind ${kind}">${kind}</span>
+        <details><summary>${esc(summarize(c))}</summary><pre>${esc(args)}</pre><pre>${esc(result)}</pre></details>`));
+    }
+    body.append(g);
+  }
+  d.append(body);
   return d;
 }
 function summarize(c) {
-  const a = c.args || {};
+  const a = c.args || {}, r = json(c.result) || {};
   if (c.name.startsWith("dispatch_researchers")) return (a.briefs || []).map(b => `${b.researcher}: "${b.query}"${b.broadened ? " (broadened)" : ""}`).join(" · ") || "details";
   if (c.name.startsWith("search_ebay")) return `"${a.query}" · ${(a.conditions || []).join(", ")}`;
   if (c.name.startsWith("search_retail")) return `"${a.query}"`;
-  if (c.name.startsWith("review_listings")) return `excluded ${(a.exclude || []).length} in review`;
+  if (c.name.startsWith("review_listings")) return `kept ${r.n_kept ?? "?"} of ${r.n_before_review ?? "?"} · excluded ${(a.exclude || []).length} in review`;
+  if (c.name === "assess_item") return r.ready ? `ready: ${r.item?.product || ""}` : "needs more detail";
+  if (c.name === "validate_citations") return `${plural(r.cited?.length || 0, "citation")} valid, ${plural(r.unknown_tags_stripped?.length || 0, "invalid tag")} removed`;
   return "details";
 }
 
-// --- input ---
+// --- draft my listing ---
+async function draftListing(m, btn, slot) {
+  btn.disabled = true; btn.textContent = "Drafting…";
+  try {
+    const res = await fetch("/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memo: m }) });
+    if (!res.ok) throw new Error(`server returned ${res.status}`);
+    const d = await res.json();
+    slot.innerHTML = `<div class="draft"><h3>Your listing draft</h3>
+      <div class="dtitle">${esc(d.title)}</div><div class="count">${d.title.length}/80 characters</div>
+      <pre>${esc(d.description)}</pre>
+      <p class="meta">List at <b>${money(d.price)}</b>: ${esc(d.price_note)} Fill in anything in [brackets] before posting.</p>
+      <div class="row"><button class="btn" type="button" data-copy="title">Copy title</button><button class="btn" type="button" data-copy="description">Copy description</button></div></div>`;
+    slot.querySelectorAll("[data-copy]").forEach(b => { const label = b.textContent; b.onclick = () => copy(d[b.dataset.copy], b, label); });
+    slot.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    btn.textContent = "Redraft";
+  } catch (e) {
+    slot.innerHTML = `<div class="warn" style="margin-top:14px">Couldn't draft the listing: ${esc(e.message)}</div>`;
+    btn.textContent = "Draft my listing";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// --- input, reset, theme ---
 function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
 input.addEventListener("input", autosize);
 input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); } });
-form.addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
-
-document.getElementById("reset").onclick = async () => {
+document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
+document.getElementById("reset").onclick = () => {
   if (busy) return;
   if (sessionId) fetch(`/clear?session_id=${encodeURIComponent(sessionId)}`, { method: "POST" }).catch(() => {});
-  sessionId = null;
+  sessionId = null; answers = 0;
   log.innerHTML = "";
-  welcome();
+  intro();
   input.focus();
 };
-
-const themeBtn = document.getElementById("theme");
 function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
 try { applyTheme(localStorage.getItem("theme")); } catch {}
-themeBtn.onclick = () => {
-  const dark = document.documentElement.dataset.theme
-    ? document.documentElement.dataset.theme === "dark"
-    : matchMedia("(prefers-color-scheme: dark)").matches;
-  const next = dark ? "light" : "dark";
-  applyTheme(next);
-  try { localStorage.setItem("theme", next); } catch {}
+document.getElementById("theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme;
+  const dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(dark ? "light" : "dark");
+  try { localStorage.setItem("theme", dark ? "light" : "dark"); } catch {}
 };
 
-welcome();
+intro();
 input.focus();
 </script>
 </body>

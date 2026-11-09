@@ -393,3 +393,102 @@ def test_adjacent_repeated_citations_are_cited_once(text, expected):
 def test_check_citations_dedupes_after_bracketing_bare_ids():
     text, cited, _ = research.check_citations("listings like E18 ($80.00 [E18])", {"E18": {}})
     assert text == "listings like [E18] ($80.00)"
+
+
+# --- Special editions ---
+
+
+@pytest.mark.parametrize("title, item_text, reason", [
+    ("Nike Air Force 1 Low White size 10", "Nike Air Force 1 Low size 10", None),
+    ("Nike Air Force 1 Low FlyEase White size 10", "Nike Air Force 1 Low size 10", "special edition: FlyEase"),
+    ("Nike Air Force 1 x Off-White size 10", "Nike Air Force 1 Low size 10", "special edition: collab"),
+    ("Custom painted Nike Air Force 1 size 10", "Nike Air Force 1 Low size 10", "special edition: custom / painted"),
+    ("Apple AirPods Pro 2 ColorWare Matte Black", "Apple AirPods Pro 2", "special edition: custom / painted"),
+    ("Apple Watch SE 44mm", "Apple Watch Series 9 44mm", "special edition: SE edition"),
+    ("Apple iPhone SE 64GB", "Apple iPhone SE 64GB", None),  # the seller named the SE
+    ("Nintendo Switch OLED Zelda Limited Edition", "Nintendo Switch OLED", "special edition: special edition"),
+])
+def test_special_editions_are_dropped_unless_named(title, item_text, reason):
+    assert research.edition_exclusion(title, item_text) == reason
+
+
+# --- One comp count ---
+
+
+def test_writer_gets_one_merged_comp_count():
+    run = run_with_sources(12)
+    second = fake_finding(n_kept=3, broadened=True)  # a later round re-finding E1..E3
+    run.findings.append(second)
+    data = json.loads(research.writer_input(run, research.confidence_cap(run)))
+    assert data["comps"]["kept"] == 12 and data["comps"]["stats_n"] == 12
+    assert all(f["researcher"] != "exact_comps" for f in data["findings"])  # no per-round counts to quote
+
+
+def test_count_mismatches_flags_other_counts_but_not_subsets():
+    texts = ["Median $85 across 19 of 27 comps that list shipping.", "Based on 27 kept comps.", "Excluded 4 listings (case only).",
+             "Just under the median of 44 comparable listings."]
+    assert research.count_mismatches(texts, 27) == [44]
+
+
+def test_condition_tiers_dedupe_and_order():
+    run = new_run()
+    tiers = lambda: {t: {"price_with_shipping": {"n": 2, "median": m, "q1": m, "q3": m}, "item_price": {"n": 2}} for t, m in
+                     [("used", 80), ("new", 150), ("for_parts", 40)]}
+    for _ in range(2):
+        f = fake_finding("condition_tiers")
+        f["stats_by_condition"] = tiers()
+        run.findings.append(f)
+    assert [r["condition"] for r in research.tier_rows(run)] == ["new", "used", "for_parts"]
+
+
+# --- Draft my listing ---
+
+
+MEMO = {"item": {"product": "Apple AirPods Pro (2nd generation)", "variant": "", "condition": "used", "condition_detail": "good",
+                 "included": "charging case"}, "assumptions": [], "price_low": 78.0, "price_high": 85.0,
+        "comps": [{"shipping": 0}, {"shipping": 0}, {"shipping": 5.0}]}
+
+
+def test_clip_title_respects_ebays_80_characters():
+    long = "Apple iPhone 13 Pro 128GB Sierra Blue Unlocked Smartphone with Original Box and Charger Cable - Used"
+    clipped = research.clip_title(long)
+    assert len(clipped) <= research.EBAY_TITLE_MAX and long.startswith(clipped) and not clipped.endswith(" ")
+
+
+def test_draft_falls_back_to_the_template_and_invents_nothing(monkeypatch):
+    async def broken(*a, **k):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(research.Runner, "run", broken)
+    draft = asyncio.run(research.draft_listing(MEMO))
+    assert draft["source"] == "template" and draft["price"] == 85.0
+    assert draft["title"] == "Apple AirPods Pro (2nd generation) with charging case - Used"
+    assert "Condition: good" in draft["description"] and "Free shipping." in draft["description"]
+
+
+def test_draft_cleanup_drops_title_placeholders_and_splits_bullets():
+    assert research.clip_title("Apple AirPods Pro 2nd Gen with [USB-C or Lightning] Charging Case - Used") == "Apple AirPods Pro 2nd Gen with Charging Case - Used"
+    text = "Up for sale. - Condition: Good. [add photos] - Included: Case - Shipping: Free."
+    assert research.tidy_description(text) == "Up for sale.\n- Condition: Good. [add photos]\n- Included: Case\n- Shipping: Free."
+
+
+def test_writer_is_asked_once_more_when_its_comp_counts_are_off(monkeypatch):
+    run = run_with_sources(12)
+    good = Memo(price_low=82, price_high=88, headline="List at $82-$88 from 12 kept comps [E3]", rationale="r", key_factors=[],
+                confidence="high", confidence_reason="c", limitations=["asking prices are not sold prices"])
+    bad = good.model_copy(update={"headline": "List at $82-$88 from 44 comparable listings [E3]"})
+    prompts = []
+
+    class Result:
+        def __init__(self, out):
+            self.final_output = out
+
+    async def fake_run(agent, prompt, **kw):
+        prompts.append(prompt)
+        return Result(bad if len(prompts) == 1 else good)
+
+    monkeypatch.setattr(research.Runner, "run", fake_run)
+    _, memo = asyncio.run(research.write_memo(run))
+    assert len(prompts) == 2 and "there are 12 kept comps" in prompts[1]
+    assert "12 kept comps" in memo["headline"] and not memo["citation_check"]["warnings"]
+    assert any(c["name"] == "recount" for c in run.trace.calls)

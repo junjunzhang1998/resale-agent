@@ -67,6 +67,16 @@ async def chat(request: ChatRequest):
                         tool_calls=result["tool_calls"], memo=result["memo"])
 
 
+class DraftRequest(BaseModel):
+    memo: dict  # the memo /chat returned
+
+
+@app.post("/draft")
+async def draft(request: DraftRequest):
+    # An eBay-style title and description for the priced item. Stateless: the page sends the memo.
+    return await research.draft_listing(request.memo)
+
+
 @app.post("/clear")
 def clear(session_id: str | None = None):
     sessions.pop(session_id, None)

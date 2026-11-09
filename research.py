@@ -48,8 +48,9 @@ HIGH_CONFIDENCE_COMPS = 10
 # Price spread of the kept comps: IQR / median. Above TIGHT caps confidence at medium, above WIDE at low.
 TIGHT_SPREAD = 0.35
 WIDE_SPREAD = 0.6
-RESEARCH_TIMEOUT = 150  # seconds for the whole research phase; the Writer gets what's found by then
+RESEARCH_TIMEOUT = 130  # seconds for the whole research phase; the Writer gets what's found by then
 WRITER_TIMEOUT = 75
+RECOUNT_TIMEOUT = 30  # one Writer retry when its comp counts are off; 130 + 75 + 30 stays under app.py's 240
 TABLE_ROWS = 12  # comps shown in the memo's table
 
 Condition = Literal["new", "open_box", "like_new", "used", "refurbished", "for_parts"]
@@ -104,6 +105,25 @@ def model_exclusion(title: str, product: str) -> str | None:
         return f"different model: not {'/'.join(sorted(w.title() for w in want - have))}"
     if have - want:
         return f"different model: {'/'.join(sorted(w.title() for w in have - want))}"
+    return None
+
+
+# Special editions, collabs and custom colorways price differently from the base model. Dropped
+# unless the seller named the edition. Reason -> regex (case-insensitive).
+EDITION_PATTERNS = {
+    "special edition": r"\b(special|limited|anniversary|collector'?s?)\s+edition\b|\blimited\b",
+    "SE edition": r"\bSE\b",
+    "FlyEase": r"\bfly\s?ease\b",
+    "custom / painted": r"\bcustom\b|\bcolorware\b|\b(hand[- ]?)?painted\b|\bskinned\b",
+    "collab": r"\bcollab(oration)?\b|[a-z0-9]\s+[x\u00d7]\s+[a-z]",
+}
+
+
+def edition_exclusion(title: str, item_text: str) -> str | None:
+    """'special edition: ...' when the title names an edition the seller's item doesn't, or None."""
+    for reason, pattern in EDITION_PATTERNS.items():
+        if re.search(pattern, title or "", re.I) and not re.search(pattern, item_text or "", re.I):
+            return f"special edition: {reason}"
     return None
 
 
@@ -289,6 +309,8 @@ async def do_search_ebay(state: ResearcherState, query: str, conditions: list[st
             reason = title_exclusion(record["title"], _item_text(state.run.item), tier)
             if reason is None:
                 reason = model_exclusion(record["title"], state.run.item.product)
+            if reason is None:
+                reason = edition_exclusion(record["title"], _item_text(state.run.item))
             if reason is None and not state.brief.broadened:  # a broadened brief may swap the variant
                 reason = variant_exclusion(record["title"], state.run.item.variant)
             if reason is None and record["buyingOptions"] == ["AUCTION"]:
@@ -447,6 +469,8 @@ listings and decide which ones are truly the same item as the seller's.
      broadened, the title must state that variant. Exclude listings that don't state it
      ("variant not stated") and listings that offer several variants in one ("several
      variants: 128GB-1TB"). "Unlocked" must appear for an unlocked phone.
+   - Editions: unless the item names one, exclude special or limited editions, collabs ("x Travis
+     Scott"), FlyEase, SE versions and custom or painted colorways ("special edition: <which>").
    - condition_tiers: condition differences are expected. Only judge whether it's the product.
    - retail: also exclude used, refurbished or renewed offers, and offers that state a different
      variant (store titles often omit carrier: keep those). A new offer from a third-party
@@ -645,8 +669,8 @@ writer = Agent(
 You write a pricing memo for a casual reseller, using only the findings and sources you're given.
 
 Price range (price_low to price_high, in dollars):
-- Anchor on the kept exact comps in the seller's condition. Use price_with_shipping when most
-  comps state their shipping, else item_price. A competitive asking price usually sits between
+- Anchor on comps: the kept exact comps in the seller's condition. comps.stats is on
+  comps.price_basis (price_with_shipping when most comps state shipping, else item_price). A competitive asking price usually sits between
   Q1 and the median: active listings skew high because overpriced items sit unsold.
 - Adjust for the seller's condition detail, what's included, and the condition_tiers spread.
 - Retail is a reference, not a rule. retail_reference gives resale_to_retail_ratio (median comp
@@ -659,12 +683,18 @@ Price range (price_low to price_high, in dollars):
   - null: no new retail found. Price from the comps and say retail couldn't be checked.
 - If the comps came from a broadened search (adjacent variant or condition), say so.
 
+Counts: comps.kept is the one comp count. Use it whenever you say how many comps there are. A
+statistic over fewer listings names its subset: comps.stats covers comps.stats_n listings, so when
+stats_n < kept write e.g. "median $85 across the 19 of 27 comps that list shipping". Don't quote
+condition_tiers counts as comps: they cover other conditions.
+If excluded_summary shows special editions, collabs or custom colorways, say they were left out.
+
 Writing:
 - headline: one line, the range and why, e.g. "List at $70–$78 with free shipping: just under
   the $77 median of 9 comparable used listings [E3][E8]."
 - rationale: 2 to 4 sentences. key_factors: 2 to 4 bullets (condition, shipping, retail
   discounts, included accessories, best offer).
-- Say how many listings were excluded and why, from excluded_summary, e.g. "Excluded 4 listings
+- Say how many listings were excluded and why, from comps.excluded_summary, e.g. "Excluded 4 listings
   (2 case only, 1 single earbud, 1 different model)."
 
 Citations:
@@ -701,6 +731,44 @@ def comp_basis(run: Run) -> tuple[str, dict]:
     stats = market.comp_stats([run.sources[sid] for sid in kept_comp_ids(run)])
     basis = "price_with_shipping" if stats["price_with_shipping"]["n"] * 2 >= stats["item_price"]["n"] > 0 else "item_price"
     return basis, stats[basis]
+
+
+def comp_summary(run: Run) -> dict:
+    """The exact comps across every round, with one count: the kept comps."""
+    comps = comps_findings(run)
+    basis, stats = comp_basis(run)
+    excluded = Counter()
+    for f in comps:
+        excluded.update(f["excluded_summary"])
+    return {
+        "kept": len(kept_comp_ids(run)),
+        "found": sum(f["n_found"] for f in comps),
+        "after_title_filter": sum(f["n_after_title_filter"] for f in comps),
+        "excluded_summary": dict(excluded.most_common()),
+        "broadened": any(f["broadened"] for f in comps),
+        "queries": [q for f in comps for q in f["queries"]],
+        "price_basis": basis,
+        "stats_n": stats.get("n", 0),
+        "stats": stats,
+        "best_offer_count": sum(f.get("best_offer_count", 0) for f in comps),
+        "notes": [f["note"] for f in comps if f.get("note")],
+    }
+
+
+COUNT_CLAIM = re.compile(r"(?<![\d$.,])(\d+)\s+(?:kept\s+|exact\s+|comparable\s+|used\s+|active\s+)*(?:comps|comparables|listings)\b", re.I)
+
+
+def count_mismatches(texts: list[str], kept: int) -> list[int]:
+    """Comp counts in the memo that aren't the kept count. In '19 of 27 comps' only '27 comps' is a
+    claim (the total), so a subset written that way passes; exclusion counts pass too."""
+    wrong = []
+    for text in texts:
+        for m in COUNT_CLAIM.finditer(text):
+            n = int(m.group(1))
+            before = text[max(0, m.start() - 25):m.start()].lower()
+            if n != kept and not re.search(r"\b(excluded|excluding|dropped|removed|left out)\b", before):
+                wrong.append(n)
+    return wrong
 
 
 def comp_spread(run: Run) -> float | None:
@@ -756,12 +824,12 @@ def confidence_cap(run: Run) -> tuple[str, str]:
     if n_exact < MIN_COMPS:
         return "medium", "the comps come partly from a broadened search (adjacent variant or condition)"
     if spread is not None and spread > TIGHT_SPREAD:
-        return "medium", f"{n_exact} exact comps, but {spread_text}"
+        return "medium", f"{n_all} kept comps, but {spread_text}"
     if n_exact < HIGH_CONFIDENCE_COMPS:
-        return "medium", f"only {n_exact} exact comps"
+        return "medium", f"only {n_all} kept comps"
     if ref and ref["role"] == "ceiling" and ref["successor"]:
         return "medium", "the retail ceiling is the successor model's price"
-    return "high", f"{n_exact} exact comps and {spread_text}"
+    return "high", f"{n_all} kept comps and {spread_text}"
 
 
 def source_line(sid: str, record: dict) -> str:
@@ -774,8 +842,11 @@ def source_line(sid: str, record: dict) -> str:
 
 def writer_input(run: Run, cap: tuple[str, str]) -> str:
     useful = list(dict.fromkeys(sid for f in run.findings for sid in f["kept_ids"]))
-    findings = [{k: v for k, v in f.items() if k not in ("excluded", "kept_ids")} for f in run.findings]
+    # The exact comps go in once, merged across rounds: per-round counts are what made the Writer
+    # quote 29 in one sentence and 44 in the next.
+    findings = [{k: v for k, v in f.items() if k not in ("excluded", "kept_ids")} for f in run.findings if f["researcher"] != "exact_comps"]
     return json.dumps({
+        "comps": comp_summary(run),
         "item": run.item.model_dump(),
         "assumptions": run.assumptions,
         "max_confidence": cap[0],
@@ -856,6 +927,9 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
     ref = retail_reference(run)
     if ref and ref["role"] == "ceiling" and high > ref["price"]:
         warnings.append(f"the range tops the lowest new retail price ({_money(ref['price'])} [{ref['id']}])")
+    texts = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"]]
+    if wrong := count_mismatches(texts, len(kept_comp_ids(run))):
+        warnings.append(f"comp counts {sorted(set(wrong))} differ from the {len(kept_comp_ids(run))} kept comps")
     order = {"low": 0, "medium": 1, "high": 2}
     confidence = min(memo.confidence, cap[0], key=order.get)
     if confidence != memo.confidence:
@@ -876,7 +950,7 @@ def comp_rows(run: Run) -> list[dict]:
     for sid in sorted(kept_comp_ids(run), key=lambda s: run.sources[s]["price"]):
         r = run.sources[sid]
         rows.append({"id": sid, "title": r["title"], "condition": r["condition"], "price": r["price"],
-                     "shipping": r["shippingCost"], "total": r["totalPrice"], "url": r["itemWebUrl"],
+                     "shipping": r["shippingCost"], "total": r["totalPrice"], "url": r["itemWebUrl"], "image": r.get("image"),
                      "best_offer": "BEST_OFFER" in r["buyingOptions"]})
     return rows
 
@@ -889,13 +963,18 @@ def spread(rows: list, k: int = TABLE_ROWS) -> list:
 
 
 def tier_rows(run: Run) -> list[dict]:
-    rows = []
+    """Median price per condition from the condition_tiers researcher, best condition first. A tier
+    searched again in a later round keeps its first result."""
+    rows = {}
     for f in run.findings:
+        if f["researcher"] != "condition_tiers":
+            continue
         for tier, s in (f.get("stats_by_condition") or {}).items():
             st = s["price_with_shipping"] if s["price_with_shipping"]["n"] else s["item_price"]
-            if st["n"]:
-                rows.append({"condition": tier, "n": st["n"], "median": st["median"], "q1": st["q1"], "q3": st["q3"]})
-    return rows
+            if st["n"] and tier not in rows:
+                rows[tier] = {"condition": tier, "n": st["n"], "median": st["median"], "q1": st["q1"], "q3": st["q3"]}
+    order = list(market.CONDITION_IDS)
+    return sorted(rows.values(), key=lambda r: order.index(r["condition"]) if r["condition"] in order else len(order))
 
 
 def retail_rows(run: Run) -> list[dict]:
@@ -984,8 +1063,22 @@ async def write_memo(run: Run) -> tuple[str, dict | None]:
             None,
         )
     cap = confidence_cap(run)
-    result = await asyncio.wait_for(Runner.run(writer, writer_input(run, cap), hooks=run.trace, max_turns=2), WRITER_TIMEOUT)
-    memo, check = validate_memo(run, result.final_output, cap)
+    prompt = writer_input(run, cap)
+    draft = (await asyncio.wait_for(Runner.run(writer, prompt, hooks=run.trace, max_turns=2), WRITER_TIMEOUT)).final_output
+    kept = len(kept_comp_ids(run))
+    if wrong := count_mismatches([draft.headline, draft.rationale, draft.confidence_reason, *draft.key_factors], kept):
+        # One retry with the exact problem named; if it fails or times out, the first draft stands
+        note = (f"\n\nRevise your memo: it gives comp counts {sorted(set(wrong))}, but there are {kept} kept comps. "
+                f"Say {kept} comps, and write any subset as 'N of {kept}' (e.g. '21 of {kept} list shipping'). Change nothing else.")
+        try:
+            revised = (await asyncio.wait_for(Runner.run(writer, prompt + note, hooks=run.trace, max_turns=2), RECOUNT_TIMEOUT)).final_output
+            still = count_mismatches([revised.headline, revised.rationale, revised.confidence_reason, *revised.key_factors], kept)
+            run.trace.record("writer", "recount", {"counts_found": sorted(set(wrong)), "kept": kept}, {"revised": True, "counts_still_off": sorted(set(still))})
+            if len(still) < len(wrong):
+                draft = revised
+        except Exception as e:
+            run.trace.record("writer", "recount", {"counts_found": sorted(set(wrong)), "kept": kept}, {"revised": False, "error": type(e).__name__})
+    memo, check = validate_memo(run, draft, cap)
     rows = {"comps": comp_rows(run), "tiers": tier_rows(run), "retail": retail_rows(run)}
     markdown, sources = render(run, memo, rows, check["cited"])
     run.trace.record("writer", "validate_citations", {"tags_in_memo": check["cited"] + check["unknown_tags_stripped"]}, check)
@@ -1040,3 +1133,101 @@ async def answer(turns: list[dict], clarifications: int) -> dict:
         trace.record("lead", "dispatch_researchers (code fallback)", {"briefs": [b.model_dump() for b in briefs]}, await dispatch(run, briefs))
     response, memo = await write_memo(run)
     return {"response": response, "tool_calls": trace.calls, "memo": memo, "clarifying": False}
+
+
+# --- Draft my listing (POST /draft) ---
+
+EBAY_TITLE_MAX = 80
+DRAFT_TIMEOUT = 30
+CONDITION_LABELS = {"new": "New", "open_box": "Open Box", "like_new": "Like New", "used": "Used",
+                    "refurbished": "Refurbished", "for_parts": "For Parts"}
+
+
+class Listing(BaseModel):
+    title: str
+    description: str
+
+
+lister = Agent(
+    name="writer",
+    instructions=f"""\
+You draft an eBay listing for a casual reseller from the facts given. Use only those facts.
+
+title: at most {EBAY_TITLE_MAX} characters. Brand, model, variant (storage, carrier, size), the key
+included accessory, then condition, e.g. "Apple AirPods Pro 2nd Gen with USB-C Charging Case - Used
+Good". No ALL CAPS, emojis, "L@@K" or words like "rare" or "mint" unless the seller said them.
+No [brackets] in the title: leave out details you don't know.
+
+description: plain text, under 120 words. A one-sentence intro, then short "- " bullet lines for
+Condition (the seller's own words), Included, and Shipping. Never invent specs, accessories,
+battery health, defects or history. Where a buyer would expect a detail the facts don't give, write
+a bracketed placeholder for the seller to fill in, e.g. "[add battery health]", "[describe any
+scratches; add photos]". Don't mention the price.""",
+    model=MODEL,
+    model_settings=SETTINGS,
+    output_type=Listing,
+)
+
+
+def listing_facts(memo: dict) -> dict:
+    item = memo.get("item") or {}
+    comps = memo.get("comps") or []
+    free = sum(c.get("shipping") == 0 for c in comps)
+    return {
+        "product": item.get("product", ""),
+        "variant": item.get("variant", ""),
+        "condition": CONDITION_LABELS.get(item.get("condition"), item.get("condition", "")),
+        "condition_detail": item.get("condition_detail", ""),
+        "included": item.get("included", ""),
+        "assumptions": memo.get("assumptions") or [],
+        "most_comps_ship_free": bool(comps) and free * 2 >= len(comps),
+    }
+
+
+def tidy_description(text: str) -> str:
+    """Put each '- Label:' bullet on its own line: the model sometimes returns them run together."""
+    text = re.sub(r"\s+-\s+(?=[A-Z][\w ]{1,20}:)", "\n- ", (text or "").strip())
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
+def clip_title(title: str) -> str:
+    """eBay's 80-character limit, cut at a word boundary. Placeholders don't belong in a title."""
+    title = re.sub(r"\[[^\]]*\]", "", title or "")
+    title = " ".join(title.split())
+    if len(title) <= EBAY_TITLE_MAX:
+        return title
+    return title[:EBAY_TITLE_MAX + 1].rsplit(" ", 1)[0].rstrip(" -,")
+
+
+def template_listing(facts: dict) -> Listing:
+    """No model needed: the same facts in a fixed shape."""
+    parts = [facts["product"], facts["variant"]]
+    if facts["included"]:
+        parts.append(f"with {facts['included']}")
+    parts.append(f"- {facts['condition']}")
+    lines = [
+        f"{facts['product']} {facts['variant']}".strip() + f", {facts['condition'].lower()}.",
+        f"- Condition: {facts['condition_detail'] or '[describe the condition; add photos]'}",
+        f"- Included: {facts['included'] or '[list what is included]'}",
+        "- Shipping: " + ("Free shipping." if facts["most_comps_ship_free"] else "[shipping cost and service]"),
+    ]
+    return Listing(title=" ".join(p for p in parts if p), description="\n".join(lines))
+
+
+async def draft_listing(memo: dict) -> dict:
+    """An eBay-style title and description at the top of the suggested range (room for offers)."""
+    facts = listing_facts(memo)
+    price = memo.get("price_high")
+    source = "model"
+    try:
+        result = await asyncio.wait_for(Runner.run(lister, json.dumps(facts, indent=1), max_turns=1), DRAFT_TIMEOUT)
+        listing = result.final_output
+    except Exception:
+        listing, source = template_listing(facts), "template"
+    return {
+        "title": clip_title(listing.title),
+        "description": tidy_description(listing.description),
+        "price": price,
+        "price_note": "The top of the suggested range, leaving room for Best Offer.",
+        "source": source,
+    }

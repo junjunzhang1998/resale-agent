@@ -110,10 +110,17 @@ def test_ebay_search_returns_compact_records(monkeypatch):
     first = result["items"][0]
     assert set(first) == {
         "itemId", "title", "price", "currency", "shippingCost", "totalPrice", "condition",
-        "conditionId", "buyingOptions", "itemCreationDate", "itemWebUrl",
+        "conditionId", "buyingOptions", "itemCreationDate", "itemWebUrl", "image",
     }
     assert first["price"] == 129.99 and first["shippingCost"] == 0.0 and first["totalPrice"] == 129.99
     assert "?" not in first["itemWebUrl"]  # tracking parameters stripped
+
+
+def test_ebay_record_keeps_the_listing_image():
+    record = market.ebay_record({"itemId": "1", "title": "t", "price": {"value": "10", "currency": "USD"},
+                                 "image": {"imageUrl": "https://i.ebayimg.com/images/g/x/s-l225.jpg"}})
+    assert record["image"].endswith("s-l225.jpg")
+    assert market.ebay_record({"itemId": "2", "title": "t"})["image"] is None
 
 
 def test_ebay_record_handles_calculated_shipping_and_auctions(monkeypatch):
