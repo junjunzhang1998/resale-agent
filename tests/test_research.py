@@ -302,12 +302,12 @@ def test_check_citations_keeps_real_tags_and_strips_invented_ones():
 
 def test_validate_memo_caps_confidence_sorts_range_and_warns_above_retail():
     run = run_with_sources(3)
-    memo = Memo(price_low=260, price_high=90, headline="List at $90 [E1] [E99]", rationale="r [R1]", key_factors=["E2 at $82"],
+    memo = Memo(price_low=260, price_high=90, headline="List at $81 [E1] [E99]", rationale="r [R1]", key_factors=["E2 at $82"],
                 confidence="high", confidence_reason="lots of data", limitations=["asking prices are not sold prices"])
     clean, check = research.validate_memo(run, memo, research.confidence_cap(run))
     assert (clean["price_low"], clean["price_high"]) == (90, 260)
     assert clean["confidence"] == "low" and "Capped" in clean["confidence_reason"]
-    assert clean["headline"] == "List at $90 [E1] " and clean["key_factors"] == ["[E2] at $82"]
+    assert clean["headline"] == "List at $81 [E1] " and clean["key_factors"] == ["[E2] at $82"]
     assert check["unknown_tags_stripped"] == ["E99"] and set(check["cited"]) == {"E1", "E2", "R1"}
     assert any("lowest new retail price" in w for w in check["warnings"])
 
@@ -641,10 +641,10 @@ def test_writers_own_exclusion_counts_are_replaced_with_codes():
     run = run_with_sources(10)
     run.findings[0]["excluded"] = [{"id": "E90", "title": "x", "reason": "single earbud / one side", "by": "code"}]
     memo = Memo(price_low=82, price_high=88, headline="h", confidence="high", confidence_reason="c",
-                rationale="Comps sit near $86 [E3]. Excluded 4 listings (3 single earbuds, 1 case only). Prices dropped 20% this month.",
+                rationale="Comps sit near $83 [E3]. Excluded 4 listings (3 single earbuds, 1 case only). Prices dropped 20% this month.",
                 key_factors=["3 single earbuds were removed", "Free shipping is common"], limitations=["Asking prices are not sold prices."])
     clean, check = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["rationale"] == ("Comps sit near $86 [E3]. Prices dropped 20% this month. "
+    assert clean["rationale"] == ("Comps sit near $83 [E3]. Prices dropped 20% this month. "
                                   "Excluded 1 of 11 listings: 1 single earbud / one side.")
     assert clean["key_factors"] == ["Free shipping is common"]
     assert any("exclusion counts were replaced" in w for w in check["warnings"])
@@ -728,6 +728,84 @@ def test_new_listings_far_below_retail_become_a_key_factor():
 
 
 # --- Retail titles ---
+
+
+def new_below_retail_run():
+    run = run_with_sources(12)  # comps 81..92, retail $249.95 at Best Buy [R1]
+    for i, price in enumerate([125.0, 130, 135, 140], 100):
+        run.register("E", str(i), {"title": f"new {i}", "price": price, "shippingCost": 0.0, "totalPrice": price, "condition": "New",
+                                   "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": f"https://www.ebay.com/itm/{i}"})
+    tiers = fake_finding("condition_tiers")
+    tiers["tier_ids"] = {"new": ["E13", "E14", "E15", "E16"]}
+    run.findings.append(tiers)
+    return run
+
+
+def memo_with(**kw):
+    base = dict(price_low=82, price_high=88, headline="h", rationale="r.", key_factors=[], confidence="high", confidence_reason="c", limitations=[])
+    return Memo(**{**base, **kw})
+
+
+# --- Key factors appear once ---
+
+
+def test_key_factors_are_deduped_against_codes_own():
+    run = new_below_retail_run()
+    gap = research.new_vs_retail(run)["sentence"]
+    memo = memo_with(key_factors=[gap, "Sealed new units on eBay sell well below the $249.95 retail price [R1].",
+                                  "Free shipping is standard.", "Free shipping is standard!"])
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["key_factors"] == [gap, "Free shipping is standard."]
+
+
+# --- Stats are cited to their basis, listings only for their own price ---
+
+
+def test_a_stat_is_cited_to_its_basis_not_a_listing():
+    grades = ["Pre-owned - Excellent"] * 6 + ["Pre-owned - Good"] * 4 + ["Used"] * 2
+    run = run_with_sources(12, prices=[120.0, 121, 122, 123, 124, 125, 90, 92, 94, 96, 110, 112])
+    for i, g in enumerate(grades, 1):
+        run.sources[f"E{i}"]["condition"] = g
+    w = research.grade_summary(run)["weighted_median"]
+    # even a listing whose total equals the stat (as E3's did for Chanel) isn't its source
+    holder = next(s for s in run.sources if s.startswith("E") and run.sources[s]["totalPrice"] == w)
+    text = f"List just below the anchor median of ${w:,.2f} [{holder}]."
+    assert research.fix_stat_citations(text, run) == f"List just below the anchor median of ${w:,.2f} (grade-weighted median of 12 comps)."
+    # a basis already named: the tag just goes
+    assert research.fix_stat_citations("the median $116.00 across all 12 comps [E1][E2].", run) == "the median $116.00 across all 12 comps."
+    # a quartile with no basis gets one
+    q1 = research.comp_median(run)["q1"]
+    assert research.fix_stat_citations(f"near the Q1 of ${q1:.2f} [E9]", run) == f"near the Q1 of ${q1:.2f} (Q1 of all 12 comps)"
+
+
+def test_a_listing_tag_stays_only_on_that_listings_own_price():
+    run = run_with_sources(12)  # E1 = $81 with free shipping, E2 = $82
+    assert research.fix_stat_citations("List at $81 [E1] to $90 [E2].", run) == "List at $81 [E1] to $90."
+    assert research.fix_stat_citations("from $82 [E1][E2]", run) == "from $82 [E2]"
+    assert research.fix_stat_citations("new at Best Buy for $249.95 [R1], was ignored", run) == "new at Best Buy for $249.95 [R1], was ignored"
+    assert research.fix_stat_citations("see [E1] and [E2]", run) == "see [E1] and [E2]"  # no amount: untouched
+
+
+def test_validated_memo_lists_only_the_citations_that_survive():
+    run = run_with_sources(12)
+    clean, check = research.validate_memo(run, memo_with(headline="List at $81 [E1], near the median $86.50 [E5][E6]."), research.confidence_cap(run))
+    assert "[E5]" not in clean["headline"] and check["cited"] == ["E1"]
+
+
+# --- Best Offer only when offers are common ---
+
+
+def test_best_offer_is_a_factor_only_when_30_percent_of_comps_take_offers():
+    run = run_with_sources(10)
+    memo = memo_with(rationale="Comps cluster near $86. Enable Best Offer to catch buyers.", key_factors=["Best Offer gives room to haggle", "Free shipping"])
+    for sid in ("E1", "E2"):  # 2 of 10 take offers
+        run.sources[sid]["buyingOptions"] = ["FIXED_PRICE", "BEST_OFFER"]
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["key_factors"] == ["Free shipping"] and "Best Offer" not in clean["rationale"]
+    run.sources["E3"]["buyingOptions"] = ["FIXED_PRICE", "BEST_OFFER"]  # 3 of 10: 30%
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["key_factors"][0] == "Best Offer gives room to haggle"
+    assert research.offers_common({"comps": [{"best_offer": True}, {"best_offer": False}, {"best_offer": False}, {"best_offer": False}]}) is False
 
 
 def test_retail_title_names_the_model_when_the_store_leaves_it_out():

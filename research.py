@@ -860,10 +860,13 @@ Writing:
   (condition, shipping, retail discounts, included accessories, best offer).
 
 Citations:
-- Every price you mention ends with the tag of its source: "$93 [E3]", "new at Best Buy for
-  $249.95 [R1]". For a statistic over many listings, cite 2 or 3 listings near that value:
-  "median $77.49 across 9 comps [E2][E7]".
+- A listing's own price ends with its tag: "$93 [E3]", "new at Best Buy for $249.95 [R1]". Tag a
+  listing only when the number is that listing's price, total or shipping.
+- A statistic (median, Q1, weighted median, a range endpoint taken from one) gets no listing tag:
+  name its basis instead, e.g. "median $77.49 across 9 comps", "Q1 of $75.25 across the 22 of 32
+  comps that list shipping".
 - Use only tags listed in sources. Never invent a tag or a number.
+- Best Offer: mention it only when comps.best_offer_share is 0.3 or more.
 
 confidence: never higher than max_confidence. confidence_reason: one sentence (comp count and
 price spread).
@@ -961,11 +964,16 @@ def _basis_value(record: dict, basis: str) -> float | None:
     return record.get("totalPrice") if basis == "price_with_shipping" else record.get("price")
 
 
-def _near(run: Run, ids: list[str], value: float, basis: str, k: int = 2) -> str:
-    """Citation tags for the k listings priced nearest value."""
-    priced = [s for s in ids if _basis_value(run.sources[s], basis) is not None]
-    near = sorted(priced, key=lambda s: abs(_basis_value(run.sources[s], basis) - value))[:k]
-    return "".join(f"[{s}]" for s in sorted(near, key=lambda s: int(s[1:])))
+BEST_OFFER_SHARE = 0.3  # below this share of kept comps accepting offers, Best Offer isn't a factor
+
+
+def best_offer_count(run: Run) -> int:
+    return sum("BEST_OFFER" in run.sources[s].get("buyingOptions", []) for s in kept_comp_ids(run))
+
+
+def best_offer_share(run: Run) -> float:
+    n = len(kept_comp_ids(run))
+    return round(best_offer_count(run) / n, 2) if n else 0.0
 
 
 def grade_summary(run: Run) -> dict | None:
@@ -988,7 +996,7 @@ def grade_summary(run: Run) -> dict | None:
     note = None
     if differs:
         note = (f"{cond} median {_money(used)} across {comp_median(run)['phrase'].split(' across ', 1)[1]}; the {len(matching)} listed "
-                f"Pre-owned - {grade} (your grade) ask a median {_money(m_median)} {_near(run, matching, m_median, basis)}, "
+                f"Pre-owned - {grade} (your grade) ask a median {_money(m_median)}, "
                 f"so the range leans toward that grade.")
     return {
         "grade": grade,
@@ -1051,7 +1059,7 @@ def new_vs_retail(run: Run) -> dict | None:
     ratio = st["median"] / ref["price"]
     if ratio > NEW_BELOW_RETAIL:
         return None
-    sentence = (f"Sealed new listings on eBay ask a median {_money(st['median'])} {_near(run, ids, st['median'], basis)}, "
+    sentence = (f"Sealed new listings on eBay ask a median {_money(st['median'])} across {st['n']} listings, "
                 f"{round((1 - ratio) * 100)}% below the {_money(ref['price'])} new price at {ref['retailer']} [{ref['id']}]: "
                 f"buyers can get it new for well under retail, which pulls used prices down.")
     return {"n": st["n"], "median": st["median"], "retail_price": ref["price"], "ratio": round(ratio, 2), "sentence": sentence}
@@ -1076,7 +1084,8 @@ def comp_summary(run: Run) -> dict:
         "median_phrase": comp_median(run)["phrase"],
         "grade": grade_summary(run),
         "anchor_median": anchor_median(run),
-        "best_offer_count": sum(f.get("best_offer_count", 0) for f in comps),
+        "best_offer_count": best_offer_count(run),
+        "best_offer_share": best_offer_share(run),
         "notes": [f["note"] for f in comps if f.get("note")],
     }
 
@@ -1257,10 +1266,121 @@ def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
     clean["rationale"] = " ".join([s for s in parts if not EXCLUSION_COUNT.search(s)] + [sentence])
     clean["key_factors"] = [k for k in clean["key_factors"] if not EXCLUSION_COUNT.search(k)]
     clean["limitations"] = [x for x in clean["limitations"] if not EXCLUSION_COUNT.search(x)]
-    added = [x["sentence"] for x in [new_vs_retail(run)] if x] + [g["note"] for g in [grade_summary(run)] if g and g["note"]]
-    clean["key_factors"] = added + clean["key_factors"]
+    # Best Offer only when a meaningful share of comps take offers
+    if best_offer_share(run) < BEST_OFFER_SHARE:
+        clean["key_factors"] = [k for k in clean["key_factors"] if not BEST_OFFER.search(k)]
+        clean["rationale"] = " ".join(s for s in SENTENCE.split(clean["rationale"]) if not BEST_OFFER.search(s))
+    # Code's factors first; a Writer factor on the same topic, or a near-copy of another, is dropped
+    gap, grade = new_vs_retail(run), grade_summary(run)
+    added = [gap["sentence"]] if gap else []
+    writer = [k for k in clean["key_factors"] if not (gap and NEW_BELOW_RETAIL_TOPIC.search(k))]
+    if grade and grade["note"]:
+        added.append(grade["note"])
+        writer = [k for k in writer if not GRADE_TOPIC.search(k)]
+    clean["key_factors"] = dedupe_factors(added + writer)
     if item_profile(run.item)["luxury"]:
         clean["limitations"] = [x for x in clean["limitations"] if "authentic" not in x.lower()] + [AUTH_LIMITATION]
+    for k in ("headline", "rationale", "confidence_reason"):
+        clean[k] = fix_stat_citations(clean[k], run)
+    for k in ("key_factors", "limitations"):
+        clean[k] = [fix_stat_citations(x, run) for x in clean[k]]
+
+
+BEST_OFFER = re.compile(r"\bbest[- ]offers?\b|\baccepts?(ing)? offers\b|\bmake an offer\b|\bopen to offers\b", re.I)
+NEW_BELOW_RETAIL_TOPIC = re.compile(r"\bsealed\b|\bnew\b.*\b(below|under|less than|cheaper than)\b.*\bretail\b|\bbelow retail\b", re.I)
+GRADE_TOPIC = re.compile(r"\bpre-owned - \w+|\b(your|matching|same) grade\b|\bgrade[- ](weighted|median)\b", re.I)
+
+
+def _words(text: str) -> set[str]:
+    return {w.rstrip(".,") for w in re.findall(r"\$?\d[\d,.]*|[a-z]+", TAG.sub("", text).lower())} - {"the", "a", "an", "of", "and", "to", "at", "on", "in", "for", "is"}
+
+
+def dedupe_factors(factors: list[str], overlap: float = 0.6) -> list[str]:
+    """Drop a key factor that repeats an earlier one (the same words, give or take a few)."""
+    out = []
+    for f in factors:
+        w = _words(f)
+        if f.strip() and not any(w and len(w & _words(o)) / len(w | _words(o)) >= overlap for o in out):
+            out.append(f)
+    return out
+
+
+AMOUNT = re.compile(r"\$\s?(\d[\d,]*(?:\.\d{1,2})?)")
+TAG_RUN = re.compile(r"(?:\s*\[[ER]\d+\])+")
+STAT_WORDS = re.compile(r"\b(median|q1|q3|quartiles?|average|mean|weighted|anchor|middle half|typical)\b", re.I)
+BASIS_NAMED = re.compile(r"\b(comps|listings|offers)\b", re.I)
+
+
+def _same_amount(written: str, value) -> bool:
+    """'$75' is 75.00 (and rounds 74.99); '$75.25' must match to the cent."""
+    if not isinstance(value, (int, float)):  # retail "price" is display text ("$249.95"); extracted_price is the number
+        return False
+    x = float(written.replace(",", ""))
+    return abs(x - value) < 0.005 or ("." not in written and abs(x - value) < 0.5)
+
+
+def stat_labels(run: Run) -> list[tuple[float, str, str]]:
+    """(value, kind, basis label) for every statistic the memo may quote."""
+    out = []
+    cm = comp_median(run)
+    over = cm["phrase"].split(" across ", 1)[1] if " across " in cm["phrase"] else f"{cm['of']} comps"
+    for kind, name in (("median", "median"), ("q1", "Q1"), ("q3", "Q3")):
+        if cm.get(kind) is not None:
+            out.append((cm[kind], kind, f"{name} of {over.removeprefix('the ')}"))
+    if g := grade_summary(run):
+        if g["weighted_median"] is not None:
+            out.append((g["weighted_median"], "weighted", f"grade-weighted median of {g['n']} comps"))
+        if g["matching_median"] is not None:
+            out.append((g["matching_median"], "grade", f"median of the {g['n_matching']} {g['label']} comps"))
+    for t in tier_rows(run):
+        if t["source"] == "condition_search" and t["median"] is not None:
+            label = CONDITION_LABELS.get(t["condition"], t["condition"]).lower()
+            out.append((t["median"], "median", f"median of {t['n']} {label} listings in the broader condition search"))
+    if (ref := retail_reference(run)) and ref.get("median_new") is not None:
+        out.append((ref["median_new"], "median", "median of the new retail offers"))
+    return out
+
+
+def _pick_label(written: str, context: str, labels: list) -> str | None:
+    found = [x for x in labels if _same_amount(written, x[0])]
+    if not found:
+        return None
+    for kind, pattern in (("weighted", r"\bweighted\b|\banchor\b"), ("q1", r"\bq1\b|\blower quartile\b"), ("q3", r"\bq3\b|\bupper quartile\b"),
+                          ("grade", r"\bgrade\b|\bpre-owned\b")):
+        if re.search(pattern, context, re.I):
+            return next((x[2] for x in found if x[1] == kind), found[0][2])
+    return found[0][2]
+
+
+def fix_stat_citations(text: str, run: Run) -> str:
+    """'$7,036.00 [E3]' where $7,036 is a weighted median -> '$7,036.00 (grade-weighted median of 16
+    comps)'. A tag after a dollar amount stays only when the amount is that listing's own price,
+    total or shipping and isn't described as a statistic; a statistic is cited to its basis."""
+    labels = stat_labels(run)
+    edits, seg_start = [], 0
+    for m in TAG_RUN.finditer(text):
+        boundary = max((b.end() for b in re.finditer(r"[.!?;:]\s", text[:m.start()])), default=0)
+        start = max(seg_start, boundary)
+        seg_start = m.end()
+        amounts = list(AMOUNT.finditer(text, start, m.start()))
+        if not amounts:
+            continue
+        a = amounts[-1]
+        before, between = text[max(start, a.start() - 40):a.start()], text[a.end():m.start()]
+        ids = re.findall(r"[ER]\d+", m.group(0))
+        is_stat = bool(STAT_WORDS.search(before) or STAT_WORDS.search(between))
+        keep = [] if is_stat else [i for i in ids if i in run.sources and any(
+            _same_amount(a.group(1), run.sources[i].get(k))
+            for k in ("price", "totalPrice", "shippingCost", "extracted_price", "extracted_old_price"))]
+        if keep == ids:
+            continue
+        edits.append((m.start(), m.end(), "".join(f"[{i}]" for i in keep) and " " + "".join(f"[{i}]" for i in keep)))
+        if not keep and not BASIS_NAMED.search(before + between):
+            if label := _pick_label(a.group(1), before + between, labels):
+                edits.append((a.end(), a.end(), f" ({label})"))
+    for s, e, rep in sorted(edits, key=lambda x: x[0], reverse=True):
+        text = text[:s] + rep + text[e:]
+    return text
 
 
 def split_assumptions(assumptions: list[str]) -> list[str]:
@@ -1290,6 +1410,9 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
 
     warnings = []
     apply_code_text(run, clean, warnings)
+    # what's cited after code's edits (stat tags dropped, code sentences added)
+    final = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"], *clean["limitations"]]
+    cited = [i for t in final for i in re.findall(r"\[([ER]\d+)\]", t) if i in run.sources]
     excluded = {e["id"] for f in run.findings for e in f["excluded"]}
     if wrong := sorted(set(cited) & excluded - set(kept_comp_ids(run)), key=lambda s: int(s[1:])):
         warnings.append(f"cites listings that were excluded from the comps: {', '.join(wrong)}")
@@ -1638,6 +1761,11 @@ def template_listing(facts: dict) -> Listing:
     return Listing(title=" ".join(p for p in parts if p), description="\n".join(lines))
 
 
+def offers_common(memo: dict) -> bool:
+    comps = memo.get("comps") or []
+    return bool(comps) and sum(bool(c.get("best_offer")) for c in comps) / len(comps) >= BEST_OFFER_SHARE
+
+
 async def draft_listing(memo: dict) -> dict:
     """An eBay-style title and description at the top of the suggested range (room for offers)."""
     facts = listing_facts(memo)
@@ -1652,6 +1780,6 @@ async def draft_listing(memo: dict) -> dict:
         "title": clip_title(listing.title),
         "description": tidy_description(listing.description),
         "price": price,
-        "price_note": "The top of the suggested range, leaving room for Best Offer.",
+        "price_note": "The top of the suggested range" + (", leaving room for Best Offer." if offers_common(memo) else "."),
         "source": source,
     }
