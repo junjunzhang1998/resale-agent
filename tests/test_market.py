@@ -263,3 +263,12 @@ def test_live_ebay_search(live):
 def test_live_retail_search(live):
     result = market.retail_search("AirPods Pro 2")
     assert result["items"] and any(i["extracted_price"] for i in result["items"])
+
+
+def test_cache_defaults_to_tmp_on_cloud_run(monkeypatch):
+    monkeypatch.delenv("CACHE_DIR")
+    monkeypatch.delenv("K_SERVICE", raising=False)
+    assert market.default_cache_dir() == Path(market.__file__).parent / "cache"
+    monkeypatch.setenv("K_SERVICE", "resale-agent")  # Cloud Run sets K_SERVICE
+    assert market.default_cache_dir() == Path("/tmp/cache")
+    assert market._cache_path("ebay", {"q": "x"}).parent == Path("/tmp/cache")

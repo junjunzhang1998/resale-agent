@@ -14,6 +14,7 @@ The model never does the math: every number in a finding comes from market.py.
 
 import asyncio
 import json
+import os
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -36,10 +37,14 @@ set_tracing_disabled(True)
 MODEL = LitellmModel(model="vertex_ai/gemini-3.5-flash", api_key="unused")
 # Researchers search and review titles: the cheaper, faster model is enough.
 RESEARCHER_MODEL = LitellmModel(model="vertex_ai/gemini-3.5-flash-lite", api_key="unused")
-# Gemini 3.5 is served only from the global location, so it's pinned here, as in the course
-# reference: a regional VERTEXAI_LOCATION (e.g. us-central1) would 404. The project comes from
-# VERTEXAI_PROJECT or your gcloud credentials.
-SETTINGS = ModelSettings(extra_args={"vertex_location": "global", "timeout": 60, "num_retries": 2})
+# Vertex settings come from the environment (.env locally, Cloud Run env vars when deployed).
+# Gemini 3.5 is served only from the global location, so that's the default: a regional
+# VERTEXAI_LOCATION (e.g. us-central1) returns 404. Without VERTEXAI_PROJECT, the project comes
+# from the gcloud credentials (locally) or the service account (Cloud Run).
+VERTEX = {"vertex_location": os.environ.get("VERTEXAI_LOCATION") or "global"}
+if os.environ.get("VERTEXAI_PROJECT"):
+    VERTEX["vertex_project"] = os.environ["VERTEXAI_PROJECT"]
+SETTINGS = ModelSettings(extra_args={**VERTEX, "timeout": 60, "num_retries": 2})
 
 MAX_ROUNDS = 3  # research rounds in all: the first, plus up to 2 to fill gaps
 MAX_BRIEFS_PER_ROUND = 4

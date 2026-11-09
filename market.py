@@ -44,8 +44,14 @@ _token = {"value": None, "expires": 0.0}
 # --- Disk cache ---
 
 
+def default_cache_dir() -> Path:
+    """./cache locally. On Cloud Run (which sets K_SERVICE) only /tmp is writable, so /tmp/cache:
+    it lives in the instance's memory and is lost when the instance stops, which is fine for a cache."""
+    return Path("/tmp/cache") if os.environ.get("K_SERVICE") else Path(__file__).parent / "cache"
+
+
 def _cache_path(kind: str, params: dict) -> Path:
-    cache_dir = Path(os.environ.get("CACHE_DIR") or Path(__file__).parent / "cache")
+    cache_dir = Path(os.environ.get("CACHE_DIR") or default_cache_dir())
     key = hashlib.sha256(json.dumps([kind, params], sort_keys=True).encode()).hexdigest()[:24]
     return cache_dir / f"{kind}-{key}.json"
 
