@@ -65,6 +65,8 @@ Condition = Literal["new", "open_box", "like_new", "used", "refurbished", "for_p
 CATEGORY_PATTERNS = {  # first match wins
     "earbuds": r"\bair\s?pods\b|\bearbuds?\b|\bgalaxy buds\b|\bpixel buds\b|\bbeats\b|\bheadphones?\b|\bearphones?\b",
     "phone": r"\biphone\b|\bgalaxy (s|z|note|a)\s?\d|\bpixel \d|\bsmartphone\b|\bphone\b",
+    "laptop": r"\bmacbook\b|\blaptop\b|\bnotebook\b|\bthinkpad\b|\bchromebook\b|\bsurface laptop\b|\bxps\b|\bzenbook\b",
+    "console": r"\bps[45]\b|\bplaystation\b|\bxbox\b|\bnintendo switch\b|\bswitch (oled|lite)\b|\bsteam deck\b|\bdualsense\b",
     "watch": r"\bwatch\b|\brolex\b|\bsubmariner\b|\bdatejust\b|\bdaytona\b|\bomega\b|\bpatek\b|\baudemars\b|\bcartier\b",
     "handbag": r"\b(hand)?bags?\b|\bpurse\b|\btote\b|\bclutch\b|\bflap\b|\bsatchel\b|\bcrossbody\b|\bhobo\b|\bwoc\b"
                r"|\bwallet on chain\b|\bbirkin\b|\bkelly\b|\bspeedy\b|\bneverfull\b|\bpochette\b|\bbackpack\b",
@@ -84,7 +86,15 @@ def item_profile(item: "Item") -> dict:
     if luxury and category == "general":
         category = "handbag"  # "Chanel Classic Flap" without the word bag
     boutique = next((b for b, p in BOUTIQUE_ONLY_BRANDS.items() if re.search(p, text, re.I)), None)
-    return {"category": category, "luxury": luxury, "boutique_brand": boutique}
+    # a one-of-a-kind item (a 1970s handmade quilt) has no exact comps, only similar items
+    similar = category == "general" and bool(re.search(ONE_OF_A_KIND, f"{text} {item.condition_detail}", re.I))
+    return {"category": category, "luxury": luxury, "boutique_brand": boutique, "similar_items": similar}
+
+
+ONE_OF_A_KIND = r"\bvintage\b|\bantique\b|\bhand[- ]?made\b|\bhand[- ]?(stitched|quilted|crafted|knit(ted)?|sewn|carved|painted|thrown)\b" \
+                r"|\bone[- ]of[- ]a[- ]kind\b|\bfolk art\b|\bcustom[- ]made\b|\bhomemade\b|\bheirloom\b|\b(18|19)\d0s\b"
+SIMILAR_NOTE = ("These comps are similar items, not exact matches: a one-of-a-kind piece has no identical listings, "
+                "so its price depends on its own pattern, maker and condition.")
 
 
 # Titles that mark a listing as something other than the whole item. Checked in code before the
@@ -101,7 +111,7 @@ EXCLUDE_TITLE_PATTERNS = [
     ("single earbud / one side", r"\bsingle\b|^(?!.*\bleft\b.*\bright\b|.*\bright\b.*\bleft\b).*\b(left|right)\s+(side|ear|earbud|airpod|pod|bud|only)s?\b", {"earbuds"}),
     ("for parts / not working", r"\bfor parts\b|\bparts only\b|\bnot working\b|\bbroken\b|\bdamaged\b", None),
     ("lot / multiple units", r"\blot\b|\bbulk\b|\bwholesale\b", None),
-    ("accessory, not the item", r"\bcompatible with\b|\bscreen protector\b|^\W*(case|cover|skin|charger|cable|strap|band)\b", {"earbuds", "phone", "watch", "general"}),
+    ("accessory, not the item", r"\bcompatible with\b|\bscreen protector\b|^\W*(case|cover|skin|charger|cable|strap|band)\b", {"earbuds", "phone", "watch", "laptop", "console", "general"}),
     ("accessory, not the bag", r"\borgani[sz]er\b|\b(purse |bag )?insert\b|\bshaper\b|\bstrap only\b|\bchain only\b|\bcharm\b"
                                r"|\bfor (chanel|herm[eè]s|louis vuitton|lv|gucci|dior)\b|^\W*(strap|chain|insert)\b", {"handbag"}),
     ("not genuine", r"\breplica\b|\bfake\b|\bclone\b|\bdupe\b|\binspired\b|\blook[- ]?alikes?\b|\bnot (authentic|genuine|real)\b|\bunbranded\b", None),
@@ -188,6 +198,51 @@ def edition_exclusion(title: str, item_text: str) -> str | None:
     return None
 
 
+RAM_SIZES = {"4gb", "8gb", "12gb", "16gb", "18gb", "24gb", "32gb", "36gb", "48gb", "64gb"}
+RAM = re.compile(r"(\d+)\s*gb\s*(?:of\s*)?(?:ram|memory|unified memory|ddr\d?|lpddr\d?x?)\b", re.I)
+CHIP = re.compile(r"\bM([1-5])\b(?!\s*(?:pro|max|ultra))(?:\s*chip)?|\b(?:core\s*)?(i[3579])\b", re.I)
+
+
+def laptop_variant_exclusion(title: str, variant: str) -> str | None:
+    """Laptops: chip, RAM and storage. Titles often write RAM and storage as bare sizes ("M2 8GB
+    256GB"): with the item's RAM known, a size up to 64GB that isn't storage is the RAM."""
+    title, variant = title or "", variant or ""
+    want_chip = {c.lower() for pair in CHIP.findall(variant) for c in pair if c}
+    have_chip = {c.lower() for pair in CHIP.findall(title) for c in pair if c}
+    if want_chip and have_chip and not want_chip & have_chip:
+        return f"different chip: {', '.join(sorted('M' + c if c.isdigit() else c for c in have_chip))}"
+    want_ram = {f"{n}gb" for n in RAM.findall(variant)}
+    want_sto = {f"{n}{u}".lower() for n, u in STORAGE.findall(variant)}
+    sizes = {f"{n}{u}".lower() for n, u in re.findall(r"(\d+)\s*(gb|tb)\b", title, re.I)}
+    have_ram = {f"{n}gb" for n in RAM.findall(title)} | {s for s in sizes - want_sto if s in RAM_SIZES and want_ram}
+    have_sto = sizes - have_ram - {s for s in sizes if s in RAM_SIZES and s in want_ram}
+    if want_ram and have_ram and not want_ram & have_ram:
+        return f"different RAM: {', '.join(sorted(have_ram))}"
+    if want_sto:
+        if not have_sto:
+            return f"variant not stated: {', '.join(sorted(want_sto))}"
+        if not want_sto & have_sto:
+            return f"different storage: {', '.join(sorted(have_sto))}"
+        if have_sto - want_sto:
+            return "several variants in one listing"
+    return None
+
+
+# Consoles: a bundle with extra games or controllers prices as more than the console. The seller's
+# own extras ("with 1 controller") are fine; disc and digital editions are different models.
+CONSOLE_BUNDLE = r"\bbundle\b|\b(2|3|4|two|three|four)\s*(x\s*)?controllers\b|\b(with|w/|\+|plus|&)\s*(\d+\s+)?(games?|titles)\b|\bgames? included\b|\b\d+\s+games\b"
+
+
+def console_exclusion(title: str, item_text: str) -> str | None:
+    title, item_text = title or "", item_text or ""
+    if re.search(CONSOLE_BUNDLE, title, re.I) and not re.search(CONSOLE_BUNDLE, item_text, re.I):
+        return "bundle with extras"
+    for mine, other in (("disc", "digital"), ("digital", "disc")):
+        if re.search(rf"\b{mine}\b", item_text, re.I) and re.search(rf"\b{other}\b", title, re.I) and not re.search(rf"\b{mine}\b", title, re.I):
+            return f"different edition: {other}"
+    return None
+
+
 def variant_exclusion(title: str, variant: str) -> str | None:
     """Why a listing doesn't match the item's storage or carrier, or None."""
     want = {f"{n}{u}".lower() for n, u in STORAGE.findall(variant or "")}
@@ -270,11 +325,21 @@ LIKE_NEW_WORDS = re.compile(r"\bworn (once|twice|a (few|couple of) times)\b|\bus
 NEW_WORDS = re.compile(r"\bnew with (tags?|box)\b|\bnwt\b|\bnwb\b|\bsealed\b|\bbrand new in box\b|\bdeadstock\b", re.I)
 
 
+NOT_WORKING_WORDS = re.compile(r"\b(does ?n[o']?t|wo ?n[o']?t|will not|can ?n[o']?t|does not|won't|doesn't)\s+(turn on|power on|boot|charge|work|start)\b"
+                               r"|\bnot (working|turning on|powering on)\b|\bfor parts\b|\bparts only\b|\bdead\b|\bno power\b|\bbricked\b", re.I)
+WORKS_WORDS = re.compile(r"\b(but |still |fully )?(works|working|functional|functions)( fine| great| perfectly| normally)?\b", re.I)
+
+
 def map_condition(item: "Item", text: str = "") -> str:
     """The condition group for the seller's own words (item.condition_detail plus their messages).
     Wear wins over "new" words ("like new, worn once" is pre-owned); then unworn-but-not-sealed
     phrases are open_box; then new-with-tags is new. Otherwise the intake's choice stands."""
     words = f"{item.condition_detail} {text}"
+    # Doesn't work -> for parts. Damaged but working ("cracked back but works") is used, not for parts.
+    if NOT_WORKING_WORDS.search(words):
+        return "for_parts"
+    if item.condition == "for_parts" and WORKS_WORDS.search(words):
+        return "used"
     if item.condition in ("refurbished", "for_parts"):
         return item.condition
     if LIKE_NEW_WORDS.search(words) and not re.search(r"\bnever (been )?(worn|used)\b|\bunworn\b", words, re.I):
@@ -453,8 +518,12 @@ async def do_search_ebay(state: ResearcherState, query: str, conditions: list[st
                 reason = model_exclusion(record["title"], item.product)
             if reason is None:
                 reason = edition_exclusion(record["title"], _item_text(item))
+            if reason is None and category == "console":
+                reason = console_exclusion(record["title"], f"{_item_text(item)} {item.condition_detail}")
             if reason is None and not state.brief.broadened:  # a broadened brief may swap the variant
-                reason = variant_exclusion(record["title"], item.variant)
+                # laptop titles write RAM as a bare size ("8GB 256GB"): the storage check would call it two variants
+                reason = (laptop_variant_exclusion(record["title"], f"{item.product} {item.variant}") if category == "laptop"
+                          else variant_exclusion(record["title"], item.variant))
                 if reason is None and category == "handbag":
                     reason = bag_variant_exclusion(record["title"], f"{item.product} {item.variant}")
             if reason is None and record["buyingOptions"] == ["AUCTION"]:
@@ -819,7 +888,9 @@ Ready needs all of:
 - the product and model (brand + model/generation), e.g. "AirPods Pro 2", "iPhone 13 Pro";
 - any variant that changes the price a lot: storage for phones/tablets/consoles, carrier lock
   for phones, size for clothing, shoes and handbags (e.g. mini, small, medium, jumbo for a Chanel
-  flap), screen size for laptops/TVs;
+  flap), chip/processor, RAM and storage for laptops (e.g. "M2, 8GB RAM, 256GB"), screen size
+  for TVs. A laptop's screen size is minor when the chip, RAM and storage are given: don't ask,
+  add an assumption ("Screen size not given: comps include 13- and 15-inch") and leave it out;
 - the condition: new (sealed), open box, like new, used (any wear), refurbished, or for parts.
   "good", "works fine", "some scratches" all mean used. "never used, opened", "new without tags",
   "new without box", "never worn" and "unworn" mean open_box. "worn once", "like new" and
@@ -838,8 +909,12 @@ Each assumption is one short sentence about one detail. Authenticity is never an
 add one about it (the memo covers it).
 If the user has already been asked twice, go ahead with what you have, listing assumptions,
 unless the product itself is still unknown.
+If the message names more than one item to sell, set ready false and ask which one to price
+first (one at a time), with that item's missing details in the same question.
 If the message isn't about pricing an item to sell, set ready false and say in one sentence what
 you do (suggest an asking price for a secondhand item from live eBay and retail data).
+Firearms, ammunition, gun parts and other weapons: set ready false and politely decline (you
+don't price them; eBay doesn't allow them). Don't ask for details about them.
 
 When ready, fill item. The latest request wins if the conversation moved to a new item.
 search_query: concise marketplace keywords for the item with only the details the user gave,
@@ -881,10 +956,14 @@ Price range (price_low to price_high, in dollars):
   - null: no retail price. retail_status.note says why, in code's words: use its meaning and
     never contradict it. "boutique_only" means the brand sells new only in its boutiques: say
     so, and never call the item discontinued. "discontinued" / "not_found": say retail couldn't
-    be checked online.
+    be checked online. "search_failed": the search errored; say the retail price couldn't be
+    checked, and don't call the item discontinued or unavailable.
 - new_vs_retail, when present, means sealed-new listings on eBay sit far below retail. Code adds
   its sentence to the key factors: don't restate it, but you may rely on it in the rationale.
 - If the comps came from a broadened search (adjacent variant or condition), say so.
+- item_profile.similar_items true (vintage, handmade, antique): the comps are similar items, not
+  the same piece. Code opens the rationale with a sentence saying so: don't repeat it. Describe
+  what the comps share (e.g. "vintage handmade queen quilts") and keep the range wide.
 
 Counts: comps.kept is the one comp count. Use it whenever you say how many comps there are. A
 statistic over fewer listings names its subset: comps.stats covers comps.stats_n listings, so when
@@ -1082,6 +1161,10 @@ def retail_status(run: Run) -> dict:
         return {"status": "boutique_only", "note": f"Not sold online: {boutique} sells new only in its boutiques, so there is no online retail price. The price comes from resale comps alone."}
     if no_new_retail(run):
         return {"status": "discontinued", "note": "No new retail found: Google Shopping returned only resale listings, so the item is likely discontinued. The price comes from comps alone."}
+    retail = [f for f in run.findings if f["researcher"] == "retail"]
+    if retail and all(f["errors"] for f in retail):
+        # every retail search errored: say so, don't present it as "not sold" or "discontinued"
+        return {"status": "search_failed", "note": "The retail price couldn't be checked: the Google Shopping search failed. The price comes from comps alone."}
     return {"status": "not_found", "note": "No current new retail price found online. The price comes from comps alone."}
 
 
@@ -1250,6 +1333,8 @@ def confidence_cap(run: Run) -> tuple[str, str]:
     """The highest confidence the data supports, from the kept comp count and their price spread.
     The Writer can go lower, never higher. Missing retail doesn't lower it; a successor ceiling does."""
     n_all = len(kept_comp_ids(run))
+    if item_profile(run.item)["similar_items"]:
+        return "low", "the comps are similar items, not exact matches"
     n_exact = max((f["n_kept"] for f in comps_findings(run) if not f["broadened"]), default=0)
     spread = comp_spread(run)
     ref = retail_reference(run)
@@ -1382,6 +1467,9 @@ def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
     clean["key_factors"] = dedupe_factors(added + writer)
     if item_profile(run.item)["luxury"]:
         clean["limitations"] = [x for x in clean["limitations"] if "authentic" not in x.lower()] + [AUTH_LIMITATION]
+    if item_profile(run.item)["similar_items"]:
+        clean["rationale"] = f"{SIMILAR_NOTE} {clean['rationale']}"
+        clean["limitations"] = [SIMILAR_NOTE.split(":")[0] + "; the range is a rough guide."] + clean["limitations"]
     for k in ("headline", "rationale", "confidence_reason"):
         clean[k] = fix_stat_citations(clean[k], run)
     for k in ("key_factors", "limitations"):
@@ -1770,6 +1858,20 @@ async def write_memo(run: Run) -> tuple[str, dict | None]:
 # --- The whole pipeline ---
 
 
+WEAPON = re.compile(r"\b(rifles?|shotguns?|handguns?|pistols?|revolvers?|firearms?|guns?|ammo|ammunition|ar-?15s?|ak-?47s?"
+                    r"|suppressors?|silencers?|muzzle brakes?|bump stocks?|gun magazines?|crossbows?|switchblades?|brass knuckles)\b", re.I)
+NOT_A_WEAPON = re.compile(r"\b(glue|heat|nail|staple|spray|massage|nerf|water|toy|caulk|caulking|grease|paint|airbrush|label|price|"
+                          r"temperature|radar|squirt|bubble|tattoo|solder(ing)?|top gun|pop|cap|lego)\s+guns?\b|\bguns? n'? roses\b", re.I)
+WEAPON_REPLY = ("Sorry, I can't help price firearms, ammunition or other weapons: eBay doesn't allow them, and I don't price them. "
+                "I'm happy to suggest an asking price for another secondhand item.")
+
+
+def is_weapon(text: str) -> bool:
+    """Firearms and weapons get a polite decline in code, before any research. A glue gun or a
+    massage gun is not one."""
+    return bool(WEAPON.search(NOT_A_WEAPON.sub(" ", text or "")))
+
+
 def transcript(turns: list[dict]) -> str:
     return "\n".join(f"{t['role'].capitalize()}: {t['content']}" for t in turns)
 
@@ -1778,6 +1880,9 @@ async def answer(turns: list[dict], clarifications: int) -> dict:
     """turns: the session's {role, content} messages, the latest user message last.
     Returns {response, tool_calls, memo, clarifying}."""
     trace = Trace()
+    if is_weapon(turns[-1]["content"]):
+        trace.record("lead", "decline", {"message": turns[-1]["content"]}, {"reason": "firearm or weapon"})
+        return {"response": WEAPON_REPLY, "tool_calls": trace.calls, "memo": None, "clarifying": False}
     prompt = f"{transcript(turns)}\n\n(Clarifying questions already asked: {clarifications})"
     intake = (await Runner.run(intake_agent, prompt, hooks=trace, max_turns=2)).final_output
     trace.record("lead", "assess_item", {"conversation": transcript(turns)}, intake.model_dump())

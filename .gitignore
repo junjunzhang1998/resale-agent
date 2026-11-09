@@ -19,3 +19,7 @@ cache/
 
 # pytest
 .pytest_cache/
+
+# Scenario test output: full JSON stays local; the summary is committed
+scenario_results/*
+!scenario_results/SUMMARY.md

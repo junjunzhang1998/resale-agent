@@ -525,8 +525,8 @@ def chanel_run():
 
 
 def test_item_profile_picks_category_luxury_and_boutique_brand():
-    assert research.item_profile(ITEM) == {"category": "earbuds", "luxury": False, "boutique_brand": None}
-    assert research.item_profile(CHANEL) == {"category": "handbag", "luxury": True, "boutique_brand": "Chanel"}
+    assert research.item_profile(ITEM) == {"category": "earbuds", "luxury": False, "boutique_brand": None, "similar_items": False}
+    assert research.item_profile(CHANEL) == {"category": "handbag", "luxury": True, "boutique_brand": "Chanel", "similar_items": False}
     phone = ITEM.model_copy(update={"product": "Apple iPhone 13 Pro", "search_query": "iPhone 13 Pro 128GB"})
     assert research.item_profile(phone)["category"] == "phone"
 
@@ -942,3 +942,94 @@ def test_a_basis_named_after_the_tag_is_not_labelled_twice():
         "below the retail ceiling of $115.00 (median of 3 major retailers)."
     assert research.fix_stat_citations("below the retail ceiling of $115.00 [R3].", run).startswith(
         "below the retail ceiling of $115.00 (median of 3 major retailers: Dick")
+
+
+# --- Fixes from the live scenario tests ---
+
+
+@pytest.mark.parametrize("words, intake, mapped", [
+    ("cracked back but works", "for_parts", "used"),  # damaged but working is used
+    ("cracked screen, still works fine", "for_parts", "used"),
+    ("doesn't turn on", "used", "for_parts"),
+    ("won't charge", "used", "for_parts"),
+    ("not working", "used", "for_parts"),
+    ("dead battery, no power", "used", "for_parts"),
+    ("good, light scratches", "used", "used"),
+])
+def test_working_vs_not_working(words, intake, mapped):
+    assert research.map_condition(ITEM.model_copy(update={"condition": intake, "condition_detail": words})) == mapped
+
+
+MACBOOK = "MacBook Air M2, 8GB RAM, 256GB"
+
+
+@pytest.mark.parametrize("title, reason", [
+    ("Apple MacBook Air M2 8GB 256GB Midnight", None),  # bare 8GB is the RAM, not a second storage size
+    ("Apple MacBook Air 13.6\" M2 8GB RAM 256GB SSD", None),
+    ("MacBook Air M2 16GB 256GB", "different RAM: 16gb"),
+    ("MacBook Air M2 8GB RAM 512GB SSD", "different storage: 512gb"),
+    ("MacBook Air M1 8GB 256GB", "different chip: M1"),
+    ("MacBook Air M2 8GB", "variant not stated: 256gb"),
+])
+def test_laptop_chip_ram_and_storage(title, reason):
+    assert research.laptop_variant_exclusion(title, MACBOOK) == reason
+
+
+@pytest.mark.parametrize("title, reason", [
+    ("Sony PS5 Slim Disc Edition 1TB Console", None),
+    ("PS5 Slim Disc 1TB with 1 controller", None),
+    ("R U GTA6 Ready? Sony PS5 Slim Disc (1TB CFI-2015) Bundle.", "bundle with extras"),
+    ("PS5 Slim Disc Edition 1TB w 2 controllers", "bundle with extras"),
+    ("PS5 Slim Disc + 3 Games", "bundle with extras"),
+    ("PS5 Slim Digital Edition 1TB", "different edition: digital"),
+])
+def test_console_bundles_and_editions(title, reason):
+    assert research.console_exclusion(title, "PS5 Slim disc edition with 1 controller") == reason
+
+
+def test_categories_for_laptops_and_consoles():
+    def cat(product):
+        return research.item_profile(ITEM.model_copy(update={"product": product, "search_query": product}))["category"]
+    assert cat("Apple MacBook Air M2") == "laptop" and cat("Sony PS5 Slim") == "console"
+    assert cat("Sony PS5 DualSense controller") == "console" and cat("Nintendo Switch OLED") == "console"
+
+
+def test_one_of_a_kind_items_are_priced_from_similar_items_at_low_confidence():
+    quilt = ITEM.model_copy(update={"product": "Vintage handmade quilt", "variant": "queen", "condition_detail": "good, from the 1970s",
+                                    "search_query": "vintage handmade quilt queen"})
+    assert research.item_profile(quilt)["similar_items"] is True
+    assert research.item_profile(CHANEL)["similar_items"] is False  # "vintage Chanel" is still a model with comps
+    run = run_with_sources(12)
+    run.item = quilt
+    assert research.confidence_cap(run) == ("low", "the comps are similar items, not exact matches")
+    clean, _ = research.validate_memo(run, memo_with(rationale="Quilts ask about $90."), research.confidence_cap(run))
+    assert clean["rationale"].startswith("These comps are similar items, not exact matches")
+    assert clean["confidence"] == "low" and clean["limitations"][0].startswith("These comps are similar items")
+
+
+@pytest.mark.parametrize("text, weapon", [
+    ("selling a hunting rifle", True), ("Glock 19 pistol", True), ("box of 9mm ammo", True), ("AR-15 lower", True),
+    ("Ryobi glue gun", False), ("Theragun massage gun", False), ("Nerf gun lot", False), ("Guns N' Roses vinyl", False),
+    ("AirPods Pro 2", False),
+])
+def test_weapons_are_recognised(text, weapon):
+    assert research.is_weapon(text) is weapon
+
+
+def test_a_failed_retail_search_is_reported_as_failed_not_as_not_found():
+    run = new_run()
+    failed = fake_finding("retail", n_kept=0)
+    failed["errors"] = {"retail": "RuntimeError: SerpApi budget reached"}
+    run.findings.append(failed)
+    status = research.retail_status(run)
+    assert status["status"] == "search_failed" and "couldn't be checked" in status["note"]
+
+
+def test_weapon_is_declined_before_any_model_call(monkeypatch):
+    async def must_not_run(*a, **k):
+        raise AssertionError("no model call for a weapon")
+
+    monkeypatch.setattr(research.Runner, "run", must_not_run)
+    out = asyncio.run(research.answer([{"role": "user", "content": "selling a hunting rifle"}], 0))
+    assert out["memo"] is None and not out["clarifying"] and "can't help price firearms" in out["response"]
+    assert [c["name"] for c in out["tool_calls"]] == ["decline"]
