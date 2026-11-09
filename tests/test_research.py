@@ -365,3 +365,31 @@ def test_mostly_resale_retail_results_count_as_no_new_retail(monkeypatch):
     asyncio.run(research.do_search_retail(state2, "AirPods Pro 2"))
     research.do_review(state2, [])
     assert state2.finding["only_resale_listings"] is False  # a store offer was kept
+
+
+@pytest.mark.parametrize("title, product, reason", [
+    ("Apple iPhone 13 Pro 128GB Unlocked", "Apple iPhone 13 Pro", None),
+    ("Apple iPhone 13 Pro Max 128GB Unlocked", "Apple iPhone 13 Pro", "different model: Max"),
+    ("Apple iPhone 13 - 128GB - Blue (Unlocked)", "Apple iPhone 13 Pro", "different model: not Pro"),
+    ("Apple iPhone 14 Plus 128GB", "Apple iPhone 14", "different model: Plus"),
+    ("AirPods Pro 2 plus extra ear tips", "Apple AirPods Pro (2nd generation)", None),
+    ("Apple AirPods Pro 2nd Gen USB-C", "Apple AirPods Pro (2nd generation)", None),
+])
+def test_model_tier_check(title, product, reason):
+    assert research.model_exclusion(title, product) == reason
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("listings like [E18] ($80.00 [E18]) and [E20] ($84.99 [E20])", "listings like [E18] ($80.00) and [E20] ($84.99)"),
+    ("compared to [E70] at $299.99 [E70].", "compared to [E70] at $299.99."),
+    ("median $85 [E1][E1]", "median $85 [E1]"),
+    ("from $80 [E1] to $90 [E2] and back [E1]", "from $80 [E1] to $90 [E2] and back [E1]"),  # another tag in between
+    ("low at $80 [E1]. The next sentence repeats it [E1].", "low at $80 [E1]. The next sentence repeats it [E1]."),
+])
+def test_adjacent_repeated_citations_are_cited_once(text, expected):
+    assert research.dedupe_citations(text) == expected
+
+
+def test_check_citations_dedupes_after_bracketing_bare_ids():
+    text, cited, _ = research.check_citations("listings like E18 ($80.00 [E18])", {"E18": {}})
+    assert text == "listings like [E18] ($80.00)"

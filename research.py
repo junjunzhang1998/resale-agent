@@ -83,6 +83,30 @@ CARRIERS = ("unlocked", "verizon", "at&t", "t-mobile", "sprint", "cricket", "boo
 RESALE_ONLY_SHARE = 0.8
 
 
+# Model-tier words: "iPhone 13 Pro" is not "iPhone 13 Pro Max" or "iPhone 13". The title must have
+# every tier word the product has, and none it doesn't. "plus" counts only right after the
+# product's own model number ("iPhone 14 Plus"), not in "AirPods Pro 2 plus ear tips".
+TIER_WORDS = re.compile(r"\b(pro|max|mini|ultra|lite)\b", re.I)
+
+
+def model_exclusion(title: str, product: str) -> str | None:
+    """'different model: ...' when the title's model tier differs from the product's, or None."""
+    numbers = set(re.findall(r"\b\d+\b", product or ""))
+
+    def tiers(text):
+        found = {w.lower() for w in TIER_WORDS.findall(text or "")}
+        if any(n in numbers for n in re.findall(r"\b(\d+)\s*plus\b", text or "", re.I)):
+            found.add("plus")
+        return found
+
+    want, have = tiers(product), tiers(title)
+    if want - have:
+        return f"different model: not {'/'.join(sorted(w.title() for w in want - have))}"
+    if have - want:
+        return f"different model: {'/'.join(sorted(w.title() for w in have - want))}"
+    return None
+
+
 def variant_exclusion(title: str, variant: str) -> str | None:
     """Why a listing doesn't match the item's storage or carrier, or None."""
     want = {f"{n}{u}".lower() for n, u in STORAGE.findall(variant or "")}
@@ -263,6 +287,8 @@ async def do_search_ebay(state: ResearcherState, query: str, conditions: list[st
             if sid in state.shown or any(d["id"] == sid for d in state.dropped):
                 continue
             reason = title_exclusion(record["title"], _item_text(state.run.item), tier)
+            if reason is None:
+                reason = model_exclusion(record["title"], state.run.item.product)
             if reason is None and not state.brief.broadened:  # a broadened brief may swap the variant
                 reason = variant_exclusion(record["title"], state.run.item.variant)
             if reason is None and record["buyingOptions"] == ["AUCTION"]:
@@ -785,7 +811,24 @@ def check_citations(text: str, sources: dict) -> tuple[str, list[str], list[str]
         return match.group(1)
 
     text = TAG.sub(fix, text)  # first, so '[E1, E2]' is whole tags before bare ids are looked for
-    return BARE_ID.sub(bracket, text), cited, unknown
+    return dedupe_citations(BARE_ID.sub(bracket, text)), cited, unknown
+
+
+REPEAT_GAP = 40  # characters: a tag repeated this close after itself, in the same sentence, is dropped
+
+
+def dedupe_citations(text: str) -> str:
+    """Cite once: '[E18] ($80.00 [E18])' -> '[E18] ($80.00)', '[E1][E1]' -> '[E1]'. A repeat after
+    another tag or in a later sentence stays."""
+    out, pos, last_id, last_end = [], 0, None, 0
+    for m in re.finditer(r"\s*\[([ER]\d+)\]", text):
+        gap = text[last_end:m.start()]
+        if m.group(1) == last_id and len(gap) <= REPEAT_GAP and not re.search(r"[.!?;](\s|$)", gap):
+            out.append(text[pos:m.start()])
+            pos = m.end()
+            continue
+        last_id, last_end = m.group(1), m.end()
+    return "".join(out) + text[pos:]
 
 
 def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dict]:

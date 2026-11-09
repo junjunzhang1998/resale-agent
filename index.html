@@ -1,9 +1,495 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Resale Pricing Agent</title></head>
-<body style="font-family: system-ui, sans-serif; padding: 2rem; max-width: 760px; margin: 0 auto">
-<!-- Placeholder until Phase 3 (front end). -->
-<h1>Resale Pricing Agent</h1>
-<p>Phase 3 builds the real page. For now, POST to <code>/chat</code> with <code>{"message": "..."}</code>.</p>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resale Price Research</title>
+<style>
+:root {
+  --bg: #f6f5f2; --surface: #ffffff; --surface-2: #f0eee9; --text: #1d1c1a; --muted: #6b6862;
+  --border: #e2dfd8; --accent: #1f6f5c; --accent-soft: #e3f1ec; --accent-text: #ffffff;
+  --user: #1f6f5c; --user-text: #ffffff; --warn: #9a5b00; --warn-soft: #fbf0dc;
+  --low: #b3261e; --low-soft: #fbe4e2; --med: #9a5b00; --med-soft: #fbf0dc; --high: #1f6f5c; --high-soft: #e3f1ec;
+  --dot: #6b6862; --band: rgba(31, 111, 92, .16);
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.04);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --surface: #1d1c1a; --surface-2: #262522; --text: #ecebe7; --muted: #a19e97;
+    --border: #34322e; --accent: #5cc0a5; --accent-soft: #1c332d; --accent-text: #0e1f1a;
+    --user: #2b5d50; --user-text: #f2fbf8; --warn: #e5b05c; --warn-soft: #3a2e1a;
+    --low: #f08a82; --low-soft: #3d201e; --med: #e5b05c; --med-soft: #3a2e1a; --high: #5cc0a5; --high-soft: #1c332d;
+    --dot: #a19e97; --band: rgba(92, 192, 165, .2); --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --surface: #1d1c1a; --surface-2: #262522; --text: #ecebe7; --muted: #a19e97;
+  --border: #34322e; --accent: #5cc0a5; --accent-soft: #1c332d; --accent-text: #0e1f1a;
+  --user: #2b5d50; --user-text: #f2fbf8; --warn: #e5b05c; --warn-soft: #3a2e1a;
+  --low: #f08a82; --low-soft: #3d201e; --med: #e5b05c; --med-soft: #3a2e1a; --high: #5cc0a5; --high-soft: #1c332d;
+  --dot: #a19e97; --band: rgba(92, 192, 165, .2); --shadow: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column;
+}
+a { color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+header {
+  position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.bar { max-width: 880px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+.bar h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+.bar p { margin: 0; color: var(--muted); font-size: 13px; }
+.bar .grow { flex: 1; min-width: 0; }
+.ghost {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  padding: 6px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap;
+}
+.ghost:hover { background: var(--surface-2); }
+main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 16px 16px 8px; }
+#log { display: flex; flex-direction: column; gap: 14px; }
+.msg { max-width: 100%; }
+.msg.user { align-self: flex-end; max-width: 80%; background: var(--user); color: var(--user-text);
+  padding: 9px 14px; border-radius: 16px 16px 4px 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.bot { align-self: stretch; min-width: 0; }
+.bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 16px 16px 16px 4px;
+  padding: 10px 14px; box-shadow: var(--shadow); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 640px; width: fit-content; }
+.bubble.error { border-color: var(--low); background: var(--low-soft); }
+.welcome { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
+.welcome h2 { margin: 0 0 6px; font-size: 18px; }
+.welcome p { margin: 0 0 10px; }
+.welcome .howto { margin: 0 0 10px; padding-left: 20px; }
+.welcome .howto li { margin: 3px 0; }
+.welcome .fine { color: var(--muted); font-size: 13px; font-style: italic; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 6px 12px; font-size: 13px; text-align: left; }
+.chip:hover { border-color: var(--accent); }
+.loading { display: flex; align-items: center; gap: 12px; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+.loading .stage { font-weight: 550; }
+.loading .sub { color: var(--muted); font-size: 13px; }
+
+/* Memo card */
+.memo { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; width: 100%; }
+.memo section { padding: 16px 18px; border-top: 1px solid var(--border); }
+.memo section:first-child { border-top: 0; }
+.memo h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.hero { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: start; }
+.hero .label { color: var(--muted); font-size: 13px; }
+.hero .range { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.hero .item { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.badge.low { color: var(--low); background: var(--low-soft); }
+.badge.medium { color: var(--med); background: var(--med-soft); }
+.badge.high { color: var(--high); background: var(--high-soft); }
+.disclaimer { margin-top: 10px; font-size: 13px; color: var(--muted); font-style: italic; }
+.headline { font-weight: 600; margin: 0 0 8px; }
+.memo p { margin: 0 0 8px; }
+.memo ul { margin: 0; padding-left: 20px; }
+.memo li { margin: 3px 0; }
+.conf-reason { font-size: 13px; color: var(--muted); }
+a.cite { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1; padding: 3px 5px; margin: 0 1px; border-radius: 5px;
+  background: var(--accent-soft); color: var(--accent); text-decoration: none; vertical-align: 1px; font-variant-numeric: tabular-nums; }
+a.cite:hover { background: var(--accent); color: var(--accent-text); }
+.strip { width: 100%; height: auto; display: block; overflow: visible; }
+.strip text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.legend { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.funnel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.funnel div { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
+.funnel b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.funnel span { font-size: 12px; color: var(--muted); }
+.reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+.reasons span { font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; }
+.reasons span b { font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.title { min-width: 160px; }
+td.title a { color: var(--text); text-decoration: none; }
+td.title a:hover { color: var(--accent); text-decoration: underline; }
+.tag { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 4px; white-space: nowrap; }
+.note { background: var(--warn-soft); color: var(--text); border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
+.ratio { font-size: 14px; margin-bottom: 10px; }
+.ratio b { font-variant-numeric: tabular-nums; }
+.showall { margin-top: 8px; }
+details.trace summary, details.sources summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600; }
+details.trace[open] summary, details.sources[open] summary { margin-bottom: 8px; }
+.step { border-left: 2px solid var(--border); padding: 4px 0 4px 10px; margin: 4px 0; font-size: 13px; }
+.step .who { font-weight: 600; }
+.step .kind { font-size: 11px; border-radius: 4px; padding: 0 5px; margin-left: 6px; }
+.step .kind.tool { background: var(--accent-soft); color: var(--accent); }
+.step .kind.step { background: var(--surface-2); color: var(--muted); }
+.step details summary { font-weight: 400; color: var(--muted); font-size: 12px; }
+.step pre { background: var(--surface-2); border-radius: 8px; padding: 8px; font-size: 11.5px; overflow-x: auto; max-height: 260px; margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.srclist { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.srclist li { padding: 4px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.srclist li:target { background: var(--accent-soft); }
+.meta { font-size: 12px; color: var(--muted); }
+
+footer { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg) 30%); padding-top: 12px; }
+form { max-width: 880px; margin: 0 auto; padding: 0 16px 14px; display: flex; gap: 8px; }
+textarea { flex: 1; min-width: 0; resize: none; font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; min-height: 44px; max-height: 160px; box-shadow: var(--shadow); }
+textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.send { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 12px; padding: 0 18px; font-weight: 600; }
+.send:disabled { opacity: .5; cursor: default; }
+@media (max-width: 560px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero .badge { justify-self: start; }
+  .hero .range { font-size: 28px; }
+  .bar p { display: none; }
+  .msg.user { max-width: 90%; }
+  .funnel b { font-size: 17px; }
+  .memo section { padding: 14px; }
+  .tablewrap { margin: 0 -14px; padding: 0 14px; }
+  .hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="grow">
+      <h1>Resale Price Research</h1>
+      <p>A competitive asking price from live eBay listings and retail prices, with sources.</p>
+    </div>
+    <button class="ghost" id="theme" type="button" aria-label="Toggle dark mode">Theme</button>
+    <button class="ghost" id="reset" type="button">New item</button>
+  </div>
+</header>
+
+<main>
+  <div id="log" aria-live="polite"></div>
+</main>
+
+<footer>
+  <form id="form">
+    <textarea id="input" rows="1" placeholder="Describe the item and its condition" aria-label="Message"></textarea>
+    <button class="send" id="send" type="submit">Send</button>
+  </form>
+</footer>
+
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const send = document.getElementById("send");
+let sessionId = null;
+let busy = false;
+
+const EXAMPLES = [
+  "Used AirPods Pro 2, good condition, with charging case",
+  "iPhone 13 Pro 128GB unlocked, used with light scratches",
+  "I want to sell my iPhone",
+];
+
+// --- helpers ---
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = x => x == null ? "?" : "$" + Number(x).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money0 = x => x == null ? "?" : "$" + Math.round(x).toLocaleString("en-US");
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }
+
+// [E12] / [R3] -> a link to the listing, with its title on hover. Text is escaped first.
+function cite(text, memo) {
+  const lookup = id => memo.sources?.[id] || (memo.comps || []).find(c => c.id === id) || (memo.retail || []).find(r => r.id === id);
+  return esc(text).replace(/\[([ER]\d+)\]/g, (m, id) => {
+    const s = lookup(id);
+    if (!s) return "";
+    const tip = `${s.title} · ${money(s.price)}`;
+    return `<a class="cite" href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(tip)}">${id}</a>`;
+  });
+}
+
+// --- chat log ---
+function addUser(text) { log.append(el("div", "msg user", esc(text))); scrollDown(); }
+function addBot(node) { const m = el("div", "msg bot"); m.append(node); log.append(m); scrollDown(); return m; }
+function addText(text, cls = "") { return addBot(el("div", "bubble " + cls, esc(text))); }
+
+function welcome() {
+  const w = el("div", "welcome");
+  w.innerHTML = `<h2>Price your secondhand item</h2>
+    <p class="lead"><b>For casual resellers</b> listing an item on eBay, Mercari or Facebook Marketplace.
+    This agent suggests a <b>competitive asking price</b>: researchers check active eBay listings and current retail
+    prices in parallel, filter out accessories, parts and other models, and a writer drafts a short memo that cites every listing it used.</p>
+    <ol class="howto">
+      <li><b>Describe the item:</b> brand and model, plus storage, carrier or size if it changes the price.</li>
+      <li><b>Say its condition</b> (new, open box, used with light scratches, for parts) and what's included.</li>
+      <li><b>Wait about 30 seconds.</b> If a detail is missing, it asks you first.</li>
+    </ol>
+    <p class="fine">It's an asking-price suggestion from active listings, not a prediction of what the item will sell for.</p>
+    <div class="meta" style="margin-bottom:6px">Try an example:</div>`;
+  const chips = el("div", "chips");
+  for (const ex of EXAMPLES) {
+    const b = el("button", "chip", esc(ex));
+    b.type = "button";
+    b.onclick = () => ask(ex);
+    chips.append(b);
+  }
+  w.append(chips);
+  log.append(w);
+}
+
+// No streaming: the stage text follows the pipeline's usual timing while /chat runs.
+const STAGES = [
+  [0, "Reading your item", "Checking it's specific enough to price"],
+  [3, "Researchers are searching", "Active eBay listings in your condition, other conditions, and new retail prices, in parallel"],
+  [10, "Filtering comparables", "Dropping accessories, parts, lots and other variants, then reviewing every title"],
+  [20, "Writing the memo", "Drafting the price range and checking every citation against the sources"],
+  [45, "Filling gaps", "Too few comps or no retail price: researchers are broadening the search"],
+];
+function loading() {
+  const box = el("div", "bubble loading");
+  box.innerHTML = `<div class="spinner" role="status" aria-label="Researching"></div><div><div class="stage"></div><div class="sub"></div></div>`;
+  const node = addBot(box);
+  const start = Date.now();
+  const tick = () => {
+    const s = (Date.now() - start) / 1000;
+    const [, stage, sub] = STAGES.filter(([t]) => s >= t).pop();
+    box.querySelector(".stage").textContent = `${stage}… ${Math.floor(s)}s`;
+    box.querySelector(".sub").textContent = sub;
+  };
+  tick();
+  const timer = setInterval(tick, 500);
+  return () => { clearInterval(timer); node.remove(); };
+}
+
+async function ask(text) {
+  text = text.trim();
+  if (!text || busy) return;
+  busy = true; send.disabled = true;
+  input.value = ""; autosize();
+  addUser(text);
+  const done = loading();
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 295000);
+  try {
+    const res = await fetch("/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, session_id: sessionId }), signal: abort.signal,
+    });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const data = await res.json();
+    sessionId = data.session_id;
+    done();
+    if (data.memo) addBot(renderMemo(data.memo, data.tool_calls));
+    else {
+      const failed = data.response.startsWith("Research failed");
+      const m = addText(data.response, failed ? "error" : "");
+      if (data.tool_calls?.length && !failed) m.append(renderTrace(data.tool_calls));
+    }
+  } catch (e) {
+    done();
+    addText(e.name === "AbortError" ? "That took too long. Please try again." : `Couldn't reach the server: ${e.message}`, "error");
+  } finally {
+    clearTimeout(timeout);
+    busy = false; send.disabled = false; input.focus();
+  }
+}
+
+// --- memo card ---
+function renderMemo(m, calls) {
+  const card = el("article", "memo");
+  const item = m.item || {};
+  const itemLine = [item.product, item.variant, item.condition?.replace("_", " "), item.condition_detail].filter(Boolean).join(" · ");
+
+  // price + confidence
+  card.append(el("section", "", `
+    <div class="hero">
+      <div><div class="label">Suggested asking price</div>
+        <div class="range">${money0(m.price_low)} – ${money0(m.price_high)}</div></div>
+      <span class="badge ${esc(m.confidence)}">${esc(m.confidence)} confidence</span>
+      <div class="item">${esc(itemLine)}</div>
+    </div>
+    <div class="disclaimer">A competitive asking price from active listings, not a prediction of what it will sell for.</div>`));
+
+  // the memo text
+  const s = el("section");
+  s.innerHTML = `<p class="headline">${cite(m.headline, m)}</p><p>${cite(m.rationale, m)}</p>
+    <p class="conf-reason"><b>Confidence:</b> ${cite(m.confidence_reason, m)}</p>`;
+  if (m.key_factors?.length) s.innerHTML += `<h3 style="margin-top:12px">Key factors</h3><ul>${m.key_factors.map(k => `<li>${cite(k, m)}</li>`).join("")}</ul>`;
+  if (m.assumptions?.length) s.innerHTML += `<div class="note" style="margin:12px 0 0"><b>Assumed:</b> ${m.assumptions.map(esc).join(" ")}</div>`;
+  card.append(s);
+
+  // comps: strip chart, funnel, exclusions, table
+  const c = el("section");
+  c.innerHTML = `<h3>Comparable listings</h3>${strip(m)}
+    <div class="funnel">
+      <div><b>${m.comps_found}</b><span>found on eBay</span></div>
+      <div><b>${m.comps_after_title_filter}</b><span>after title filter</span></div>
+      <div><b>${m.comps_kept}</b><span>kept after review</span></div>
+    </div>`;
+  const reasons = Object.entries(m.excluded_summary || {});
+  if (reasons.length) c.innerHTML += `<div class="meta" style="margin-bottom:6px">Excluded and why</div>
+    <div class="reasons" style="margin-bottom:12px">${reasons.map(([r, n]) => `<span><b>${n}</b> ${esc(r)}</span>`).join("")}</div>`;
+  c.append(compsTable(m));
+  card.append(c);
+
+  // condition tiers
+  if (m.condition_tiers?.length) {
+    card.append(el("section", "", `<h3>Price by condition (active listings)</h3><div class="tablewrap"><table>
+      <thead><tr><th>Condition</th><th class="num">Listings</th><th class="num">Median</th><th class="num">Middle half</th></tr></thead>
+      <tbody>${m.condition_tiers.map(t => `<tr><td>${esc(t.condition.replace("_", " "))}</td><td class="num">${t.n}</td>
+        <td class="num">${money(t.median)}</td><td class="num">${money(t.q1)} – ${money(t.q3)}</td></tr>`).join("")}</tbody></table></div>`));
+  }
+
+  // retail
+  const r = el("section", "", "<h3>Retail (new)</h3>");
+  const ref = m.retail_reference;
+  if (ref) {
+    const model = ref.successor ? "the successor model's " : "";
+    const link = `<a class="cite" href="${esc((m.retail.find(x => x.id === ref.id) || m.sources?.[ref.id] || {}).url)}" target="_blank" rel="noopener">${ref.id}</a>`;
+    r.innerHTML += ref.role === "premium"
+      ? `<div class="ratio">Resale premium: used listings ask <b>${ref.resale_to_retail_ratio.toFixed(2)}×</b> ${model}lowest new price (${money(ref.comp_median)} vs ${money(ref.price)} ${link}), so the price comes from comps alone.</div>`
+      : `<div class="ratio">Resale-to-retail ratio <b>${ref.resale_to_retail_ratio?.toFixed(2) ?? "?"}</b>: comps sit below ${model}lowest new price, ${money(ref.price)} at ${esc(ref.retailer)} ${link}, which acts as a ceiling.</div>`;
+    if (ref.successor) r.innerHTML += `<div class="note">No current retail price for this exact model; the reference is its successor, a looser ceiling.</div>`;
+  }
+  if (m.retail?.length) {
+    r.innerHTML += `<div class="tablewrap"><table><thead><tr><th>Source</th><th>Retailer</th><th>Offer</th><th class="num">Price</th><th class="num">Was</th></tr></thead>
+      <tbody>${m.retail.map(x => `<tr><td>${cite(`[${x.id}]`, m)}</td><td>${esc(x.retailer)}</td><td class="title"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></td>
+        <td class="num">${money(x.price)}</td><td class="num">${x.old_price ? money(x.old_price) : ""}</td></tr>`).join("")}</tbody></table></div>`;
+  } else {
+    r.innerHTML += `<p class="meta">${m.no_new_retail_found
+      ? "No new retail found: Google Shopping returned only resale listings, so the item is likely discontinued. The price comes from comps alone."
+      : "No current new retail price found: the item may be discontinued. The price comes from comps alone."}</p>`;
+  }
+  card.append(r);
+
+  // limitations
+  card.append(el("section", "", `<h3>Limitations</h3><ul>${(m.limitations || []).map(x => `<li>${cite(x, m)}</li>`).join("")}</ul>`));
+
+  // sources + citation check + trace
+  const f = el("section");
+  const srcs = Object.entries(m.sources || {});
+  const check = m.citation_check || {};
+  f.innerHTML = `<details class="sources"><summary>Sources (${srcs.length}) · citation check: ${check.cited?.length ?? 0} cited, ${check.unknown_tags_stripped?.length ?? 0} invalid removed${check.warnings?.length ? `, ${check.warnings.length} warning(s)` : ""}</summary>
+    ${check.warnings?.length ? `<div class="note">${check.warnings.map(esc).join("<br>")}</div>` : ""}
+    <ul class="srclist">${srcs.map(([id, s]) => `<li><a class="cite" href="${esc(s.url)}" target="_blank" rel="noopener">${id}</a>
+      <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a> <span class="meta">· ${esc(s.detail)} · ${money(s.price)}</span></li>`).join("")}</ul></details>`;
+  f.append(renderTrace(calls, m.rounds));
+  card.append(f);
+  return card;
+}
+
+// Every kept comp as a dot on a price line, with the suggested range as a band.
+function strip(m) {
+  const comps = (m.comps || []).map(c => ({ ...c, x: c.total ?? c.price, known: c.total != null })).filter(c => c.x != null);
+  if (!comps.length) return "";
+  const xs = comps.map(c => c.x).concat([m.price_low, m.price_high]);
+  let lo = Math.min(...xs), hi = Math.max(...xs);
+  const pad = (hi - lo) * 0.06 || 5; lo = Math.max(0, lo - pad); hi += pad;
+  const W = innerWidth < 560 ? 340 : 640, H = 70, L = 8, R = 8, y = 34;
+  const sx = v => L + (v - lo) / (hi - lo) * (W - L - R);
+  const ticks = niceTicks(lo, hi, W < 400 ? 3 : 5);
+  const dots = comps.map((c, i) => {
+    const jitter = ((i * 37) % 9 - 4) * 1.6;
+    return `<a href="${esc(c.url)}" target="_blank" rel="noopener"><circle cx="${sx(c.x).toFixed(1)}" cy="${(y + jitter).toFixed(1)}" r="4.2"
+      fill="${c.known ? "var(--dot)" : "var(--surface)"}" stroke="var(--dot)" stroke-width="1.3" fill-opacity=".75">
+      <title>${esc(c.id)}: ${esc(c.title)} · ${money(c.x)}${c.known ? " with shipping" : " (shipping unknown)"}</title></circle></a>`;
+  }).join("");
+  return `<svg class="strip" viewBox="0 0 ${W} ${H}" role="img" aria-label="Prices of ${comps.length} kept comps, with the suggested range ${money0(m.price_low)} to ${money0(m.price_high)}">
+    <rect x="${sx(m.price_low)}" y="14" width="${Math.max(2, sx(m.price_high) - sx(m.price_low))}" height="40" rx="5" fill="var(--band)"/>
+    <line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--border)"/>
+    ${ticks.map(t => `<text x="${sx(t)}" y="${H - 2}" text-anchor="middle">${money0(t)}</text>`).join("")}
+    ${dots}
+    <text x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="10" text-anchor="middle" style="fill:var(--accent);font-weight:600">suggested</text>
+  </svg>
+  <div class="legend">Each dot is a kept listing, price with shipping (hollow: shipping not stated). The band is the suggested range.</div>`;
+}
+function niceTicks(lo, hi, n) {
+  const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => s >= raw);
+  const out = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) out.push(t);
+  return out;
+}
+
+function compsTable(m) {
+  const wrap = el("div");
+  const rows = m.comps || [];
+  const LIMIT = 10;
+  const row = c => `<tr><td>${cite(`[${c.id}]`, { ...m, sources: { ...m.sources, [c.id]: c } })}</td>
+    <td class="title"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a>${c.best_offer ? '<span class="tag">best offer</span>' : ""}</td>
+    <td class="hide-sm">${esc(c.condition)}</td><td class="num hide-sm">${money(c.price)}</td>
+    <td class="num hide-sm">${c.shipping == null ? "?" : c.shipping === 0 ? "free" : money(c.shipping)}</td><td class="num">${money(c.total)}</td></tr>`;
+  // an even spread across the range, cheapest first, until "show all"
+  const spread = rows.length <= LIMIT ? rows : Array.from({ length: LIMIT }, (_, i) => rows[Math.round(i * (rows.length - 1) / (LIMIT - 1))]);
+  const draw = list => `<div class="tablewrap"><table><thead><tr><th>Source</th><th>Listing</th><th class="hide-sm">Condition</th>
+    <th class="num hide-sm">Price</th><th class="num hide-sm">Ship</th><th class="num">Total</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`;
+  wrap.innerHTML = draw(spread);
+  if (rows.length > LIMIT) {
+    const b = el("button", "ghost showall", `Show all ${rows.length} kept comps`);
+    b.type = "button";
+    b.onclick = () => { wrap.innerHTML = draw(rows); };
+    wrap.append(b);
+  }
+  return wrap;
+}
+
+// tool_calls, in order, with the agent that made each one.
+function renderTrace(calls, rounds) {
+  const d = el("details", "trace");
+  const tools = calls.filter(c => c.type === "tool").length;
+  d.innerHTML = `<summary>How this was researched: ${calls.length} steps, ${tools} tool calls${rounds ? `, ${rounds} research round${rounds > 1 ? "s" : ""}` : ""}</summary>`;
+  for (const c of calls) {
+    const s = el("div", "step");
+    const args = typeof c.args === "string" ? c.args : JSON.stringify(c.args, null, 1);
+    let result = c.result;
+    try { result = JSON.stringify(JSON.parse(c.result), null, 1); } catch {}
+    s.innerHTML = `<span class="who">${esc(c.agent)}</span> → ${esc(c.name)}<span class="kind ${c.type === "tool" ? "tool" : "step"}">${esc(c.type || "tool")}</span>
+      <details><summary>${esc(summarize(c))}</summary><pre>${esc(args)}</pre><pre>${esc(result ?? "")}</pre></details>`;
+    d.append(s);
+  }
+  return d;
+}
+function summarize(c) {
+  const a = c.args || {};
+  if (c.name.startsWith("dispatch_researchers")) return (a.briefs || []).map(b => `${b.researcher}: "${b.query}"${b.broadened ? " (broadened)" : ""}`).join(" · ") || "details";
+  if (c.name.startsWith("search_ebay")) return `"${a.query}" · ${(a.conditions || []).join(", ")}`;
+  if (c.name.startsWith("search_retail")) return `"${a.query}"`;
+  if (c.name.startsWith("review_listings")) return `excluded ${(a.exclude || []).length} in review`;
+  return "details";
+}
+
+// --- input ---
+function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
+input.addEventListener("input", autosize);
+input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); } });
+form.addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
+
+document.getElementById("reset").onclick = async () => {
+  if (busy) return;
+  if (sessionId) fetch(`/clear?session_id=${encodeURIComponent(sessionId)}`, { method: "POST" }).catch(() => {});
+  sessionId = null;
+  log.innerHTML = "";
+  welcome();
+  input.focus();
+};
+
+const themeBtn = document.getElementById("theme");
+function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+try { applyTheme(localStorage.getItem("theme")); } catch {}
+themeBtn.onclick = () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches;
+  const next = dark ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem("theme", next); } catch {}
+};
+
+welcome();
+input.focus();
+</script>
 </body>
 </html>
