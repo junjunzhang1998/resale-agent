@@ -184,6 +184,8 @@ def ebay_record(item: dict) -> dict:
         "conditionId": item.get("conditionId"),
         "buyingOptions": item.get("buyingOptions", []),
         "itemCreationDate": item.get("itemCreationDate"),
+        # one seller's many identical listings (a pawn shop's stock) shouldn't outvote everyone else
+        "seller": (item.get("seller") or {}).get("username"),
         # The tracking query string adds nothing: /itm/<id> opens the same listing
         "itemWebUrl": (item.get("itemWebUrl") or "").split("?")[0],
         # eBay's small (225px) listing photo, for the comps table; None if the listing has none

@@ -12,7 +12,7 @@ Live runs through the research pipeline (eBay Browse API, SerpApi Google Shoppin
 | cond_af1_nwot | "nike air force 1 07, size 7 for womens, new without tags" | $72.00–$78.00 | high | open_box | $106.48 (median of 2 major retailers: Nike, DICK'S Sporting Goods) | PASS priced (memo returned)<br>PASS exact_comps searched open_box |  |
 | retail_switch_oled | "Nintendo Switch OLED, used, good condition" | $170.00–$185.00 | high | used | $399.99 (Nintendo's price) | PASS priced (memo returned)<br>PASS retail ceiling found<br>PASS ceiling not a far-below outlier<br>PASS no refurbished/used offer in the ceiling pool |  |
 | retail_dyson_v8 | "Dyson V8 cordless vacuum, used, good condition" | $175.00–$185.00 | medium | used | $369.00 (median of 3 major retailers: Dyson Official, Best Buy, Target) | PASS priced (memo returned)<br>PASS retail ceiling found<br>PASS ceiling not a far-below outlier<br>PASS no refurbished/used offer in the ceiling pool<br>PASS no comp-count warning<br>PASS no V7/V10/V11/V12/V15 or Gen5 in kept comps<br>PASS no new units in kept comps |  |
-| variant_ps5_slim | "PS5 Slim disc edition, used, with 1 controller" | $570.00–$580.00 | high | used | $799.95 (Walmart's price) | PASS priced (memo returned)<br>PASS ceiling only from mainstream stores<br>PASS no bundles with extra games/controllers, no digital edition |  |
+| variant_ps5_slim | "PS5 Slim disc edition, used, with 1 controller" | $485.00–$525.00 | high | used | $724.97 (median of 2 major retailers: GameStop, Walmart) | PASS priced (memo returned)<br>PASS ceiling only from mainstream stores<br>PASS no bundles with extra games/controllers, no digital edition | warning: headline rewritten by code: the Writer's had jargon, a vague phrase or ran long |
 | variant_lululemon | "Lululemon Align leggings size 6, black, used" | $30.00–$35.00 | high | used | $69.00 (lululemon's price) | PASS priced (memo returned)<br>PASS no kept comp states another size<br>PASS no kept comp names a non-black color |  |
 | variant_macbook | "MacBook Air M2 8GB RAM 256GB, used, good" | $570.00–$595.00 | high | used | not_found | PASS priced (memo returned)<br>PASS every kept comp is M2<br>PASS no other chip, RAM or storage stated |  |
 | clarify_macbook | "I want to sell my MacBook" → "it's an Air" | — | — | — | — | PASS turn 1 asks a question<br>PASS turn 2 asks again, no memo<br>PASS turn 2 asks for chip/RAM/storage | What is the screen size, release year or chip (like M1/M2), storage capacity, RAM, and condition of your MacBook Air? |
@@ -37,3 +37,7 @@ Live runs through the research pipeline (eBay Browse API, SerpApi Google Shoppin
 | 2026-11-09 19:31 | retail_dyson_v8 | 1 of 1 | 0 (budget 13) |
 | 2026-11-09 19:50 | cond_sealed_controller, cond_af1_nwot, retail_switch_oled, variant_ps5_slim | 3 of 4 | 3 (budget 6) |
 | 2026-11-09 19:51 | retail_switch_oled | 1 of 1 | 1 (budget 3) |
+| 2026-11-09 20:04 | variant_ps5_slim | 1 of 1 | 0 (budget 4) |
+| 2026-11-09 20:07 | variant_ps5_slim | 1 of 1 | 0 (budget 4) |
+| 2026-11-09 20:10 | variant_ps5_slim | 1 of 1 | 0 (budget 4) |
+| 2026-11-09 20:12 | variant_ps5_slim | 1 of 1 | 0 (budget 4) |

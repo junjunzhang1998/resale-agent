@@ -656,7 +656,8 @@ function compsSection(m) {
     All stay in the set; they're weighted toward your grade${g.weighted_median != null ? `, for a weighted median of ${money(g.weighted_median)}` : ""}${g.differs ? ` vs ${money(g.used_median)} for all comps` : ""}.</p>` : "";
   // the statistics live here, not in the memo prose
   const cm = m.comp_median || {};
-  const caption = cm.median != null ? `<p class="small muted">Median ${money(cm.median)} ${cm.basis === "item_price" ? "(item price)" : "(price + shipping)"} across ${cm.n < cm.of ? `the ${cm.n} of ${cm.of} that list shipping` : `all ${cm.of}`}; middle half ${money(cm.q1)}–${money(cm.q3)}.</p>` : "";
+  // "33 listings from 28 sellers, each seller counted once ... Median ...; middle half ...": built on the server
+  const caption = cm.caption ? `<p class="small muted">${esc(cm.caption)}</p>` : "";
   body.innerHTML = `${priceStrip(m)}${caption}${gradeLine}
     <div class="funnel"><div><b>${m.comps_found}</b><span>found on eBay</span></div><div><b>${m.comps_after_title_filter}</b><span>after title filter</span></div><div><b>${m.comps_kept}</b><span>kept after review</span></div></div>
     ${reasons.length ? `<div class="small muted" style="margin-bottom:6px">Filtered out (${excludedN}) and why</div><div class="pills" style="margin-bottom:14px">${reasons.map((r, i) => `<span ${stickerAttrs(r.label, STICKER_COLORS[i % STICKER_COLORS.length])} title="${esc(r.details.join(", "))}"><b>${r.n}</b> ${esc(r.label)}</span>`).join("")}</div>` : ""}`;
@@ -701,14 +702,14 @@ function priceStrip(m) {
   const med = cm.median != null ? `<line x1="${sx(cm.median)}" x2="${sx(cm.median)}" y1="22" y2="54" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="3 2"/>` : "";
   const graded = comps.some(c => c.grade_match);
   const basisText = onTotal ? "price with shipping" : "item price";
-  const medText = cm.median == null ? "" : cm.n < cm.of ? ` Dashed line: median ${money(cm.median)} across the ${cm.n} of ${cm.of} that list shipping.` : ` Dashed line: median ${money(cm.median)} across all ${cm.of}.`;
+  const medText = cm.median == null ? "" : ` Dashed line: the median, ${money(cm.median)}.`;
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${comps.length} kept comps; suggested range ${price(m.price_low)} to ${price(m.price_high)}">
     <rect x="${sx(m.price_low)}" y="18" width="${Math.max(3, sx(m.price_high) - sx(m.price_low))}" height="40" rx="6" fill="var(--accent-soft)" stroke="var(--accent-line)"/>
     <line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line-strong)"/>
     ${ticks(lo, hi, W < 400 ? 3 : 5).map(t => `<text x="${sx(t)}" y="${H - 2}" text-anchor="middle">${price(t)}</text>`).join("")}
     ${med}${dots}
     <text class="acc" x="${(sx(m.price_low) + sx(m.price_high)) / 2}" y="12" text-anchor="middle">your range</text>
-  </svg><div class="legend">Each dot is a kept listing, ${basisText}${onTotal ? " (hollow: shipping not stated, so not in the median)" : ""}.${graded ? ` Ringed dots match your grade (${esc(m.grade.label)}).` : ""}${medText}</div>`;
+  </svg><div class="legend">Each dot is a kept listing, ${basisText}${" (hollow: not in the median: " + (onTotal ? "shipping not stated, or " : "") + "another listing from the same seller)"}.${graded ? ` Ringed dots match your grade (${esc(m.grade.label)}).` : ""}${medText}</div>`;
 }
 function ticks(lo, hi, n) {
   const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw));

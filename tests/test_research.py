@@ -742,7 +742,7 @@ def test_new_listings_far_below_retail_become_a_key_factor():
     assert "47% below retail ($249.95 at Best Buy [R1])" in gap["sentence"]
     memo = Memo(price_low=82, price_high=88, headline="h", why=["k"], confidence="high", confidence_reason="c", watch_out=[])
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["why"][1] == ("New is cheap: it's $250 at Best Buy [R1], and sealed new ones on eBay ask about half that (median $132), "
+    assert clean["why"][1] == ("New is cheap: it's $250 at Best Buy [R1], and sealed new ones on eBay ask about 45% less (median $133), "
                                "so a used one much above $88 loses to new.")
     tiers["tier_ids"] = {"new": ["E13"]}  # too few new listings to say
     assert research.new_vs_retail(run) is None
@@ -1312,7 +1312,7 @@ def test_takeaway_with_jargon_or_too_long_is_replaced_by_codes_plain_one():
     for bad in ("List at $82-$88: between the Q1 of $84 and the median $86.50 (price + shipping).",
                 " ".join(["word"] * 30)):
         clean, check = research.validate_memo(run, memo_with(headline=bad), research.confidence_cap(run))
-        assert clean["headline"] == "List at $82–88 with free shipping, around what most similar used listings ask right now."  # $88 > the $86.50 median
+        assert clean["headline"] == "List at $82–88 with free shipping, around the $87 median asking price of similar used listings."  # $88 > the median
         assert any("headline rewritten" in w for w in check["warnings"])
     clean, _ = research.validate_memo(run, memo_with(headline="List at $82-88 with free shipping. Most pairs ask more."), research.confidence_cap(run))
     assert clean["headline"] == "List at $82-88 with free shipping."  # one sentence
@@ -1324,7 +1324,7 @@ def test_why_has_at_most_three_different_facts_and_code_writes_the_comps_one():
                           "Buyers negotiate: room for offers.", "Condition: light wear on the case."])
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
     assert len(clean["why"]) == 3
-    assert clean["why"][0].startswith("Comparable listings: 12 used listings mostly ask $84 [E4] to $89 [E9], with a median of $86")
+    assert clean["why"][0].startswith("Comparable listings: 12 used listings mostly ask $84 [E4] to $89 [E9], with a median of $87")
     assert "Median $86.50 across 12 comps [E5]." not in clean["why"]  # comps are code's bullet
     assert clean["why"][1:] == ["Condition: light wear on the case.", "Shipping: most ship free, like $81 [E1]."]
 
@@ -1371,3 +1371,113 @@ def test_resale_only_retry_names_the_sellers_plain_product_name():
     assert "Try once more with exactly 'Nintendo Switch OLED'" in gap
     f["queries"] = ["Nintendo Switch OLED"]  # the plain name already tried: the generic advice
     assert "full product name a store would use" in research.find_gaps([fake_finding(), f], switch)[0]
+
+
+# --- One seller, one vote; asking prices, not sales; concrete takeaways ---
+
+
+def seller_run(prices_by_seller):
+    run = new_run()
+    i = 0
+    for seller, prices in prices_by_seller:
+        for price in prices:
+            i += 1
+            run.register("E", str(i), {"title": f"listing {i}", "price": price, "shippingCost": 0.0, "totalPrice": price, "condition": "Used",
+                                       "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": f"https://www.ebay.com/itm/{i}", "seller": seller})
+    run.findings.append(fake_finding(n_kept=i))
+    return run
+
+
+def test_each_seller_counts_once_at_its_median_priced_listing():
+    # a pawn shop with 8 identical $577.99 listings vs 6 other sellers around $500
+    run = seller_run([("pawnamerica", [577.99] * 8), ("a", [480.0]), ("b", [495.0]), ("c", [500.0]), ("d", [510.0]), ("e", [520.0]), ("f", [560.0])])
+    assert len(research.stat_comp_ids(run)) == 7 and len(research.kept_comp_ids(run)) == 14
+    cm = research.comp_median(run)
+    assert cm["median"] == 510.0  # was 577.99 with every listing counted
+    assert cm["caption"].startswith("14 listings from 7 sellers, each seller counted once at its median-priced listing.")
+    assert "across all 7 sellers" in cm["phrase"]
+    rows = research.comp_rows(run)
+    assert len(rows) == 14 and sum(r["in_median"] for r in rows) == 7  # all shown, one per seller counted
+    assert research.code_why(run)[0].startswith("Comparable listings: 14 used listings from 7 sellers mostly ask")
+    assert research.one_per_seller(run, ["E1", "E2", "E3"]) == ["E2"]  # the middle of three, by price
+    no_seller = seller_run([(None, [10.0, 20.0, 30.0])])
+    assert len(research.stat_comp_ids(no_seller)) == 3  # unknown seller: each listing stands alone
+
+
+def test_comps_from_one_seller_dont_earn_confidence():
+    run = seller_run([("pawnamerica", [577.99] * 12)])
+    level, reason = research.confidence_cap(run)
+    assert level == "low"
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("There is a tight cluster of recent used sales with 33 listings.", "There is a tight cluster of listings with 33 listings."),
+    ("Similar pairs sold for $80 [E3].", "Similar pairs listed at $80 [E3]."),
+    ("One is selling for $93.", "One is listed at $93."),
+    ("Based on recent sales data.", "Based on asking prices."),
+    ("Best Buy has it on sale for $199.", "Best Buy has it on sale for $199."),  # a store discount stays
+])
+def test_listings_are_never_called_sales(text, expected):
+    assert research.asking_not_sold(text) == expected
+
+
+def test_vague_takeaway_gets_a_concrete_comparison():
+    run = run_with_sources(12)
+    clean, _ = research.validate_memo(run, memo_with(headline="List at $82-88 to stay highly competitive against the flood of cheaper options."),
+                                      research.confidence_cap(run))
+    assert clean["headline"] == "List at $82–88 with free shipping, around the $87 median asking price of similar used listings."
+
+
+def test_new_is_cheap_states_the_real_percentage():
+    run = new_below_retail_run()  # new median $132.50 vs $249.95 retail: 47% less
+    assert "ask about 45% less (median $133)" in research.code_why(run, 88)[1]
+
+
+def test_not_stated_is_not_different(offline_market):
+    # eBay: "case not stated" is overruled unless the title says it's missing
+    run = new_run()  # AirPods Pro 2 with charging case
+    state = ResearcherState(run, brief(), 1)
+    asyncio.run(research.do_search_ebay(state, "AirPods Pro 2", ["used"]))
+    a, b, c = list(state.shown)[:3]
+    run.sources[c]["title"] = "AirPods Pro 2 earbuds, no case"
+    out = research.do_review(state, [Exclusion(id=a, reason="charging case status not stated"),
+                                     Exclusion(id=b, reason="different model: AirPods Pro 1"),
+                                     Exclusion(id=c, reason="case not stated")])
+    assert [o["id"] for o in out["overruled_by_code"]] == [a]
+    assert a in state.finding["kept_ids"] and b not in state.finding["kept_ids"] and c not in state.finding["kept_ids"]
+
+
+def test_store_title_that_omits_the_edition_is_kept(monkeypatch):
+    offer = {"price": "$649.99", "extracted_price": 649.99, "old_price": None, "extracted_old_price": None, "second_hand_condition": None, "is_resale": False}
+    offers = [{**offer, "title": "Sony PlayStation 5 Slim Console", "retailer": "GameStop", "link": "https://s/1", "product_id": "1"},
+              {**offer, "title": "Sony PlayStation 5 Slim Disc Console", "retailer": "Walmart", "extracted_price": 799.95, "link": "https://s/2", "product_id": "2"}]
+    monkeypatch.setattr(market, "retail_search", lambda query, **kw: {"query": query, "items": offers})
+    run = Run(item=PS5, assumptions=[], trace=Trace())
+    state = ResearcherState(run, brief("retail", ()), 1)
+    asyncio.run(research.do_search_retail(state, "PS5 Slim Disc"))
+    research.do_review(state, [Exclusion(id="R1", reason="variant not stated: does not specify Disc edition")])
+    run.findings.append(state.finding)
+    ref = research.retail_reference(run)
+    assert ref["price"] == round((649.99 + 799.95) / 2, 2) and len(ref["pool_ids"]) == 2  # the median of both stores
+
+
+def test_whole_dollar_quotes_round_half_up_and_keep_their_citation():
+    assert research._dollars(104.5) == "$105" and research._dollars(132.5) == "$133" and research._dollars(6505.68) == "$6,506"
+    run = run_with_sources(12, prices=[76.15, 80, 82, 84, 86, 88, 90, 95, 99, 104.5, 110, 120])
+    bullet = research.code_why(run)[0]
+    assert research.fix_stat_citations(bullet, run) == bullet  # both range ends keep their tags
+
+
+def test_seller_counts_in_a_takeaway_are_jargon():
+    run = run_with_sources(12)
+    clean, _ = research.validate_memo(run, memo_with(headline="List at $82-88, just below the median $86.50 (item price) across all 18 sellers."),
+                                      research.confidence_cap(run))
+    assert "(item price)" not in clean["headline"] and "sellers" not in clean["headline"]
+
+
+def test_only_a_restated_comps_median_is_a_duplicate():
+    run = run_with_sources(12)  # comps median $86.50
+    assert research.restates_comps(run, "Used pairs ask a median $86.50 [E5].")
+    assert research.restates_comps(run, "Most ask $84 to $89.") is False
+    assert research.restates_comps(run, "Open box value: open-box ones ask a median $130 in the broader search, like $129 [E2].") is False
+    assert research.restates_comps(run, "Retail ceiling: $249.95 (median of 2 major retailers) [R1].") is False

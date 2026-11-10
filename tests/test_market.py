@@ -110,7 +110,7 @@ def test_ebay_search_returns_compact_records(monkeypatch):
     first = result["items"][0]
     assert set(first) == {
         "itemId", "title", "price", "currency", "shippingCost", "totalPrice", "condition",
-        "conditionId", "buyingOptions", "itemCreationDate", "itemWebUrl", "image",
+        "conditionId", "buyingOptions", "itemCreationDate", "seller", "itemWebUrl", "image",
     }
     assert first["price"] == 129.99 and first["shippingCost"] == 0.0 and first["totalPrice"] == 129.99
     assert "?" not in first["itemWebUrl"]  # tracking parameters stripped

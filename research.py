@@ -719,6 +719,12 @@ def do_review(state: ResearcherState, exclude: list[Exclusion]) -> dict:
             if brief.researcher == "retail" and RETAIL_JUDGEMENT.search(e.reason or "") and not RETAIL_PRODUCT_REASON.search(e.reason or ""):
                 overruled.append({"id": e.id, "reason": e.reason})
                 continue
+            # "Doesn't say" isn't "is different": a store title that omits the edition, or an eBay title
+            # that doesn't mention the controller, is kept. A stated difference is caught in code.
+            if NOT_STATED.search(e.reason or "") and (brief.researcher == "retail" or INCLUDED_ITEMS.search(e.reason or "")) \
+                    and not MISSING_IN_TITLE.search(run.sources[e.id]["title"] or ""):
+                overruled.append({"id": e.id, "reason": e.reason})
+                continue
             state.reviewed.setdefault(e.id, {"id": e.id, "title": run.sources[e.id]["title"], "reason": review_reason(e.reason), "by": "review"})
     reviewed = list(state.reviewed.values())
     unknown = [e.id for e in exclude if e.id not in state.shown]
@@ -781,6 +787,12 @@ RETAIL_JUDGEMENT = re.compile(r"inflat|overpric|mark[- ]?up|scalp|too (high|expe
                               r"|marketplace|reseller|pre-?owned|\bused\b|refurb|renewed|not (a )?(first[- ]party|official)", re.I)
 # ...unless the reason is also about the product itself, which is the reviewer's call
 RETAIL_PRODUCT_REASON = re.compile(r"different|bundle|edition|digital|model|variant|accessor|\bgames?\b|controllers?\b|not slim|pro\b", re.I)
+
+
+NOT_STATED = re.compile(r"not (stated|specified|mentioned|listed|clear)|unclear|does(n'?t| not) (say|state|specify|mention|list)|unspecified", re.I)
+INCLUDED_ITEMS = re.compile(r"controller|charger|charging|case|cable|accessor|included|includes|box|remote|dock|strap", re.I)
+# a title that does say something is missing still gets excluded
+MISSING_IN_TITLE = re.compile(r"\b(console|unit|body|device) only\b|\bno (controller|charger|case|cables?|box)\b|\bmissing\b|\bwithout\b", re.I)
 
 
 def review_reason(reason: str) -> str:
@@ -854,6 +866,8 @@ listings and decide which ones are truly the same item as the seller's.
      third-party marketplace sellers. Don't exclude a store offer because
      its price looks high or low; only when the price means it's another product (a $9 "AirPods"
      is an accessory).
+   A title that doesn't mention an included item (controller, case, charger) is not a different
+   item: exclude it only when the title says it's missing ("console only", "no controller").
    When unsure, keep the listing. Don't trust your memory of which models exist: products newer
    than your training are real.
 3. Reply in one or two sentences about what you saw (common variants, data quality). Don't state
@@ -869,6 +883,10 @@ BRIEF_GOALS = {
 }
 
 
+def _norm(query: str) -> str:
+    return re.sub(r"\W+", " ", query or "").strip().lower()
+
+
 async def run_researcher(run: Run, brief: Brief, round_no: int) -> dict:
     """Run one researcher in a fresh context. If it fails or skips a step, code finishes the step,
     so a finding always comes back."""
@@ -877,11 +895,17 @@ async def run_researcher(run: Run, brief: Brief, round_no: int) -> dict:
     state = ResearcherState(run, brief, round_no)
     tools = [search_retail, review_listings] if brief.researcher == "retail" else [search_ebay, review_listings]
     agent = researcher.clone(name=state.name, tools=tools)
-    prompt = json.dumps({
-        "goal": BRIEF_GOALS[brief.researcher],
-        "brief": brief.model_dump(),
-        "item": run.item.model_dump(),
-    }, indent=1)
+    payload = {"goal": BRIEF_GOALS[brief.researcher], "brief": brief.model_dump(), "item": run.item.model_dump()}
+    # Retail: Google Shopping's results swing with the wording ("PS5 Slim Disc Edition" found
+    # GameStop's own offer, "Sony PlayStation 5 Slim Disc Edition" didn't). Code also searches the
+    # seller's plain query, so the ceiling is the median over every mainstream store either finds.
+    plain = retail_query(run.item.search_query)
+    if brief.researcher == "retail" and not brief.successor and plain and _norm(plain) != _norm(retail_query(brief.query)):
+        found = await do_search_retail(state, plain)
+        run.trace.record(state.name, "search_retail (code: seller's plain query)", {"query": plain}, found)
+        payload["already_searched"] = {"query": plain, "offers_to_review": found.get("offers_to_review", []),
+                                       "note": "Also search the brief's query, then review the offers from both searches in one review_listings call."}
+    prompt = json.dumps(payload, indent=1)
     note = ""
     try:
         result = await Runner.run(agent, prompt, context=state, hooks=run.trace, max_turns=6)
@@ -1147,8 +1171,12 @@ Exclusions: never mention excluded listings or their counts: the page shows them
 
 Writing (short and plain; each fact once; no "Q1", "IQR", "quartile", "price + shipping basis"):
 - headline: ONE plain sentence, at most 25 words: the range, free shipping if most comps ship
-  free, and why in everyday words, e.g. "List at $75-80 with free shipping, just under what most
-  similar used pairs are asking right now."
+  free, and a concrete comparison with a number, e.g. "List at $75-80 with free shipping, just
+  under the $81 median asking price of similar used pairs." No filler ("flood of", "highly
+  competitive", "sweet spot", "market trends").
+- Every comp is an asking price, not a sale: never write "sales", "sold for" or "selling for".
+- The statistics count each seller once (comps.median_phrase says so when it matters): a seller
+  with many identical listings is one comp.
 - why: code writes the comparable-listings bullet, and the new-price bullet when new_vs_retail is
   set, and the grade bullet when comps.grade.note is set (code_why lists them). Write exactly
   why_slots more bullets, each a DIFFERENT fact from code's and each other's: condition, what's
@@ -1188,10 +1216,29 @@ def kept_comp_ids(run: Run) -> list[str]:
     return list(dict.fromkeys(sid for f in comps_findings(run) for sid in f["kept_ids"]))
 
 
+def one_per_seller(run: Run, ids: list[str]) -> list[str]:
+    """Each seller once, at its median-priced listing (the lower middle one): a pawn shop with 14
+    identical $577.99 PS5 listings is one voice, not 14. A listing with no seller stands alone."""
+    groups: dict[str, list[str]] = {}
+    for sid in ids:
+        groups.setdefault(run.sources[sid].get("seller") or f"#{sid}", []).append(sid)
+    keep = set()
+    for members in groups.values():
+        by_price = sorted(members, key=lambda s: run.sources[s].get("price") or 0)
+        keep.add(by_price[(len(by_price) - 1) // 2])
+    return [sid for sid in ids if sid in keep]
+
+
+def stat_comp_ids(run: Run) -> list[str]:
+    """The kept comps the statistics use: one listing per seller."""
+    return one_per_seller(run, kept_comp_ids(run))
+
+
 def comp_basis(run: Run) -> tuple[str, dict]:
     """The price the kept exact comps are compared on, and its stats: price_with_shipping when
-    most comps state their shipping, else item_price. The Writer is told the same rule."""
-    stats = market.comp_stats([run.sources[sid] for sid in kept_comp_ids(run)])
+    most comps state their shipping, else item_price, over one listing per seller. The Writer is
+    told the same rule."""
+    stats = market.comp_stats([run.sources[sid] for sid in stat_comp_ids(run)])
     basis = "price_with_shipping" if stats["price_with_shipping"]["n"] * 2 >= stats["item_price"]["n"] > 0 else "item_price"
     return basis, stats[basis]
 
@@ -1247,14 +1294,20 @@ def comp_median(run: Run) -> dict:
     """The one median of the seller's condition, and how to name it: over all kept comps, or over
     the N of M that list shipping. The memo, the condition table and the chart all use this."""
     basis, stats = comp_basis(run)
-    n, of = stats.get("n", 0), len(kept_comp_ids(run))
+    listings, sellers = len(kept_comp_ids(run)), len(stat_comp_ids(run))
+    # of = what the median is over: sellers when some sell several, else listings ("comps")
+    n, of, unit = stats.get("n", 0), sellers, ("sellers" if sellers < listings else "comps")
     if basis == "price_with_shipping" and n < of:
-        phrase = f"median {_money(stats.get('median'))} (price + shipping) across the {n} of {of} comps that list shipping"
+        phrase = f"median {_money(stats.get('median'))} (price + shipping) across the {n} of {of} {unit} that list shipping"
     elif basis == "price_with_shipping":
-        phrase = f"median {_money(stats.get('median'))} (price + shipping) across all {of} comps"
+        phrase = f"median {_money(stats.get('median'))} (price + shipping) across all {of} {unit}"
     else:
-        phrase = f"median {_money(stats.get('median'))} (item price) across all {of} comps"
-    return {"basis": basis, "n": n, "of": of, "median": stats.get("median"), "q1": stats.get("q1"), "q3": stats.get("q3"), "phrase": phrase}
+        phrase = f"median {_money(stats.get('median'))} (item price) across all {of} {unit}"
+    who = f"{listings} listings from {sellers} sellers, each seller counted once at its median-priced listing" if sellers < listings \
+        else f"{listings} listings from {sellers} sellers"
+    caption = f"{who}. {phrase[0].upper()}{phrase[1:]}; middle half {_money(stats.get('q1'))}–{_money(stats.get('q3'))}."
+    return {"basis": basis, "n": n, "of": of, "listings": listings, "sellers": sellers, "median": stats.get("median"),
+            "q1": stats.get("q1"), "q3": stats.get("q3"), "phrase": phrase, "caption": caption}
 
 
 def _basis_value(record: dict, basis: str) -> float | None:
@@ -1276,7 +1329,7 @@ def best_offer_share(run: Run) -> float:
 def grade_summary(run: Run) -> dict | None:
     """The seller's eBay sub-grade (Pre-owned - Good, ...) and the comps weighted toward it. Every
     comp stays in the set; only the weights change. None when there is no grade to match."""
-    grade, ids = seller_grade(run.item), kept_comp_ids(run)
+    grade, ids = seller_grade(run.item), stat_comp_ids(run)
     if not grade or not ids:
         return None
     basis, stats = comp_basis(run)
@@ -1561,10 +1614,11 @@ def above_retail(run: Run) -> bool:
 def confidence_cap(run: Run) -> tuple[str, str]:
     """The highest confidence the data supports, from the kept comp count and their price spread.
     The Writer can go lower, never higher. Missing retail doesn't lower it; a successor ceiling does."""
-    n_all = len(kept_comp_ids(run))
+    # counted by seller: six listings from one pawn shop are one comp's worth of evidence
+    n_all = len(stat_comp_ids(run))
     if item_profile(run.item)["similar_items"]:
         return "low", "the comps are similar items, not exact matches"
-    n_exact = max((f["n_kept"] for f in comps_findings(run) if not f["broadened"]), default=0)
+    n_exact = max((len(one_per_seller(run, f["kept_ids"])) for f in comps_findings(run) if not f["broadened"]), default=0)
     spread = comp_spread(run)
     ref = retail_reference(run)
     if n_all < MIN_COMPS:
@@ -1682,7 +1736,8 @@ EXCLUSION_COUNT = re.compile(rf"{_COUNT}.*{_EXCLUDED}|{_EXCLUDED}.*{_COUNT}", re
 
 def _dollars(x: float | None) -> str:
     """$81 for a memo sentence (whole dollars; the tables keep the cents)."""
-    return "?" if x is None else f"${x:,.0f}"
+    # half up, not Python's half-to-even: $104.50 is "$105", which the citation check accepts as its price
+    return "?" if x is None else f"${int(float(x) + 0.5):,}"
 
 
 CONDITION_WORDS = {"new": "sealed new", "open_box": "open-box", "like_new": "like-new", "used": "used",
@@ -1697,19 +1752,21 @@ def code_why(run: Run, price_high: float | None = None) -> list[str]:
     ids = kept_comp_ids(run)
     basis, st = comp_basis(run)
     if ids and st.get("median") is not None:
-        priced = [s for s in ids if _basis_value(run.sources[s], basis) is not None]
+        priced = [s for s in stat_comp_ids(run) if _basis_value(run.sources[s], basis) is not None]
         def at(target):  # the listing priced nearest a quartile, quoted at its own price
             return min(priced, key=lambda s: abs(_basis_value(run.sources[s], basis) - target))
         lo, hi = at(st["q1"]), at(st["q3"])
         a, b = _basis_value(run.sources[lo], basis), _basis_value(run.sources[hi], basis)
         spread = f"{_dollars(a)} [{lo}] to {_dollars(b)} [{hi}]" if lo != hi else f"about {_dollars(a)} [{lo}]"
-        out.append(f"Comparable listings: {len(ids)} {CONDITION_WORDS.get(run.item.condition, run.item.condition)} listings "
+        sellers = len(stat_comp_ids(run))
+        who = f" from {sellers} sellers" if sellers < len(ids) else ""
+        out.append(f"Comparable listings: {len(ids)} {CONDITION_WORDS.get(run.item.condition, run.item.condition)} listings{who} "
                    f"mostly ask {spread}, with a median of {_dollars(st['median'])}.")
     if gap := new_vs_retail(run):
         ref = retail_reference(run)
         # the retail price (a listing's own, so tagged) before the median (a statistic, so not)
         retail = f"{_dollars(ref['price'])} at {ref['retailer']} [{ref['id']}]" if ref["id"] else f"about {_dollars(ref['price'])} at major stores"
-        share = "about half that" if 0.4 <= gap["ratio"] <= 0.6 else f"{round((1 - gap['ratio']) * 100)}% less"
+        share = f"about {round((1 - gap['ratio']) * 20) * 5}% less"  # the real share, to the nearest 5%
         tail = f", so a used one much above {_dollars(price_high)} loses to new" if price_high else ""
         out.append(f"New is cheap: it's {retail}, and sealed new ones on eBay ask {share} (median {_dollars(gap['median'])}){tail}.")
     if (g := grade_summary(run)) and g["note"]:
@@ -1743,10 +1800,35 @@ GENERIC = re.compile(r"\basking prices?\b.*\b(not|aren'?t|rather than)\b.*\bsold
 RETAIL_TOPIC = re.compile(r"\bretail (price|ceiling)\b.*\b(could(n'?t| not)|not (be )?(found|verified|checked)|unavailable)\b"
                           r"|\bdiscontinued\b|\bboutiques?\b|\bno (online|mainstream) retail\b", re.I)
 EXCLUSION_TOPIC = re.compile(r"\bexclu\w*|\bfiltered out\b|\bleft out\b", re.I)
-# the comps bullet is code's: a Writer bullet restating the median or the typical range repeats it
-COMPS_TOPIC = re.compile(r"\bmedian\b|^\W*comparable listings\b|\bmostly ask\b|\btypical(ly)? ask", re.I)
-JARGON = re.compile(r"\bQ[13]\b|\bIQR\b|\bquartiles?\b|\bprice \+ shipping\b|\bbasis\b|\bmiddle half\b", re.I)
+# the comps bullet is code's: a Writer bullet restating the comps' median or typical range repeats
+# it. Another median (open-box listings, the retail ceiling's basis) is a different fact.
+COMPS_TOPIC = re.compile(r"^\W*comparable listings\b|\bmostly ask\b|\btypical(ly)? ask", re.I)
+
+
+def restates_comps(run: Run, text: str) -> bool:
+    if COMPS_TOPIC.search(text or ""):
+        return True
+    median = comp_basis(run)[1].get("median")
+    return median is not None and any(_same_amount(a, median) or _same_amount(a, round(median))
+                                      for a in AMOUNT.findall(text or "")) and bool(re.search(r"\bmedian\b", text or "", re.I))
+JARGON = re.compile(r"\bQ[13]\b|\bIQR\b|\bquartiles?\b|\bprice \+ shipping\b|\(item price\)|\bbasis\b|\bmiddle half\b"
+                    r"|\bacross (all )?(the )?\d+ (of \d+ )?sellers\b", re.I)
 MAX_WORDS = 25
+# vague filler that says nothing concrete: the takeaway gets code's concrete comparison instead
+VAGUE = re.compile(r"\bflood of\b|\bsea of\b|\bsweet spot\b|\bmarket trends?\b|\b(highly|very) competitive\b|\bremain competitive\b"
+                   r"|\bstand out\b|\bcapture (buyers|value|interest)\b|\battract (more )?buyers\b|\bcurrent market\b|\bpositioning\b", re.I)
+# listings are asking prices, never sales
+SALES_WORDS = [(r"\b(?:recent |completed |past )?(?:used )?sales (?:data|prices|history)\b", "asking prices"),
+               (r"\b(?:recent |completed |past )?(?:used )?sales\b", "listings"), (r"\bsold for\b", "listed at"),
+               (r"\bselling for\b", "listed at"), (r"\bsells for\b", "is listed at")]
+
+
+def asking_not_sold(text: str) -> str:
+    """'a tight cluster of recent used sales' -> 'a tight cluster of listings'. These are asking
+    prices; nothing here was sold. ('On sale' at a store, a discount, stays.)"""
+    for pattern, word in SALES_WORDS:
+        text = re.sub(pattern, word, text or "", flags=re.I)
+    return text
 
 
 def _n_words(text: str) -> int:
@@ -1759,13 +1841,15 @@ def _first_sentence(text: str) -> str:
 
 
 def fallback_headline(run: Run, low: float, high: float) -> str:
-    """Code's own takeaway, when the Writer's is jargon or too long."""
+    """Code's own takeaway, when the Writer's has jargon, a vague phrase or runs long: a concrete
+    comparison with the median."""
     comps = comp_rows(run)
     free = comps and sum(c["shipping"] == 0 for c in comps) * 2 >= len(comps)
     median = comp_basis(run)[1].get("median")
     where = "just under" if median and high <= median else "around"
     cond = CONDITION_WORDS.get(run.item.condition, run.item.condition)
-    return f"List at {_dollars(low)}–{_dollars(high).lstrip('$')}{' with free shipping' if free else ''}, {where} what most similar {cond} listings ask right now."
+    return (f"List at {_dollars(low)}–{_dollars(high).lstrip('$')}{' with free shipping' if free else ''}, {where} the "
+            f"{_dollars(median)} median asking price of similar {cond} listings.")
 
 
 def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
@@ -1774,18 +1858,22 @@ def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
     item-specific Watch out bullets, a one-sentence confidence reason. Each fact once: generic
     caveats, exclusion counts, retail-status repeats and restated assumptions are dropped."""
     # takeaway: one plain sentence
-    head = _first_sentence(clean["headline"])
-    if JARGON.search(head) or _n_words(head) > MAX_WORDS or not head:
-        warnings.append("headline rewritten by code: the Writer's had jargon or ran long")
+    head = _first_sentence(asking_not_sold(clean["headline"]))
+    if JARGON.search(head) or VAGUE.search(head) or _n_words(head) > MAX_WORDS or not head:
+        warnings.append("headline rewritten by code: the Writer's had jargon, a vague phrase or ran long")
         head = fallback_headline(run, clean["price_low"], clean["price_high"])
     clean["headline"] = head
 
     def keep(text: str) -> bool:
         return bool(text.strip()) and not (GENERIC.search(text) or EXCLUSION_COUNT.search(text) or EXCLUSION_TOPIC.search(text))
 
+    # these are asking prices: the Writer's "sales" / "sold for" become listings / listed at
+    clean["why"] = [asking_not_sold(w) for w in clean["why"]]
+    clean["watch_out"] = [asking_not_sold(w) for w in clean["watch_out"]]
+    clean["confidence_reason"] = asking_not_sold(clean["confidence_reason"])
     # Why: code's bullets, then the Writer's on topics code didn't cover
     mine = code_why(run, clean["price_high"])
-    theirs = [w for w in clean["why"] if keep(w) and not COMPS_TOPIC.search(w) and not RETAIL_TOPIC.search(w)]
+    theirs = [w for w in clean["why"] if keep(w) and not restates_comps(run, w) and not RETAIL_TOPIC.search(w)]
     if new_vs_retail(run):
         theirs = [w for w in theirs if not NEW_BELOW_RETAIL_TOPIC.search(w)]
     if (g := grade_summary(run)) and g["note"]:
@@ -1842,7 +1930,7 @@ def _same_amount(written: str, value) -> bool:
     if not isinstance(value, (int, float)):  # retail "price" is display text ("$249.95"); extracted_price is the number
         return False
     x = float(written.replace(",", ""))
-    return abs(x - value) < 0.005 or ("." not in written and abs(x - value) < 0.5)
+    return abs(x - value) < 0.005 or ("." not in written and abs(x - value) <= 0.5)  # "$105" for $104.50
 
 
 def stat_labels(run: Run) -> list[tuple[float, str, str]]:
@@ -2002,6 +2090,7 @@ def comp_rows(run: Run) -> list[dict]:
     rows = []
     basis = comp_basis(run)[0]
     grade = seller_grade(run.item)
+    median_ids = set(stat_comp_ids(run))  # one per seller: the others are shown, not counted
     for sid in sorted(kept_comp_ids(run), key=lambda s: run.sources[s]["price"]):
         r = run.sources[sid]
         g = listing_grade(r["condition"])
@@ -2009,7 +2098,8 @@ def comp_rows(run: Run) -> list[dict]:
                      "shipping": r["shippingCost"], "total": r["totalPrice"], "url": r["itemWebUrl"], "image": r.get("image"),
                      "best_offer": "BEST_OFFER" in r["buyingOptions"],
                      # in the median: on a price + shipping basis, a comp with unknown shipping isn't
-                     "in_median": _basis_value(r, basis) is not None,
+                     "in_median": sid in median_ids and _basis_value(r, basis) is not None,
+                     "seller": r.get("seller"),
                      "grade": g, "grade_match": bool(grade) and g == grade,
                      "weight": grade_weight(g, grade) if grade else 1.0})
     return rows
