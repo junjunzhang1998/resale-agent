@@ -42,6 +42,13 @@ Gap loop example, from the scenario test run at 2026-11-09 19:51 ("Nintendo Swit
 
 In round 2 the Lead sent only a retail brief for "Nintendo Switch OLED". It found $399.99 at Nintendo's store, and code reported no more gaps.
 
+## Design choices
+
+- Rules in code, judgment by the LLM. Filters (storage, carrier, size, bundles, editions), stats, citations and confidence caps are code. The LLM reviews ambiguous listings and writes the memo.
+- Each eBay seller counts once, at its median listing. One PS5 seller's six identical listings were setting the median before this.
+- Condition wording maps to eBay's groups ("new without tags" → New without box, "doesn't turn on" → For parts), and sub-grades (Pre-owned Good/Excellent) weight the comps.
+- Retail is a reference, not always a ceiling. If used comps ask more than retail (collectibles), the memo says so instead of capping the price.
+
 ## Sample queries
 
 Run on Nov 9, 2026. Live prices change, so a new run will give somewhat different numbers. "Expected" is the range the live comps support (between the lower end of the middle half and the median), with the confidence code allows.
@@ -55,7 +62,7 @@ Run on Nov 9, 2026. Live prices change, so a new run will give somewhat differen
 | Agent's answer | $70-80, medium. "List at $70-80, around the $80 median asking price of similar used listings." "New is cheap: it's $250 at Best Buy [R21]..." "12 of 25 used comps accept Best Offer, like this $80 pair with a Lightning case [E25]." |
 | Baseline answer | USB-C version $130-160, Lightning version $100-130. New retail $249. No sources, data "as of 2024". |
 
-Live listings change daily; reruns on Nov 9 gave $70–85 with medium to high confidence depending on price spread.
+Live listings change daily; reruns on Nov 9 gave $70-85 with medium to high confidence depending on price spread.
 
 **"iPhone 13 Pro 128GB unlocked, used with light scratches"**
 
@@ -70,12 +77,14 @@ Live listings change daily; reruns on Nov 9 gave $70–85 with medium to high co
 
 | | |
 |---|---|
-| Expected answer | About $6,000-6,500 for all used comps, higher for the Pre-owned Good grade. High confidence. No online retail price, since Chanel sells new only in boutiques. |
+| Expected answer | About $6,500-7,100, high confidence, anchored on the Pre-owned Good median ($7,036) because the seller said good condition. All-used comps run lower (median $6,506). No online retail price, since Chanel sells new only in boutiques. |
 | Where it comes from | eBay `item_summary/search`, used: 50 found, 22 kept from 17 sellers, median $6,505.68 with shipping (Pre-owned Good median $7,036). Google Shopping: no retail, boutique-only brand. |
-| Agent's answer | $6,500-7,100, high. "Chanel sells new only in boutiques; list at $6,500-$7,100 with free shipping, near the $7,036 median for used Good condition bags." "14 of 22 comps accept Best Offer, including a black caviar model listed at $6,499 [E2]." Watch out: comps aren't verified authentic. The headline anchors on the Pre-owned Good median ($7,036), not the all-used median, because the seller said good condition. |
+| Agent's answer | $6,500-7,100, high. "Chanel sells new only in boutiques; list at $6,500-$7,100 with free shipping, near the $7,036 median for used Good condition bags." "14 of 22 comps accept Best Offer, including a black caviar model listed at $6,499 [E2]." Watch out: comps aren't verified authentic. |
 | Baseline answer | Good condition $6,500-8,500. Says retail is $10,800. No sources. |
 
 The baseline is the Lead's model (`vertex_ai/gemini-3.5-flash`) with no tools and no system prompt: `uv run python scripts/baseline.py`. Its answers are trimmed to the price sentence; [full answers here](docs/baseline_answers.md).
+
+Without tools, the model overprices the electronics by $30-140 (AirPods $100-160 vs live $70-80; iPhone $400-460 vs live $300-320) and cites nothing. For Chanel its range overlaps but is wider, quotes an unsourced $10,800 retail price, and has no listings behind it.
 
 ## Limitations
 
