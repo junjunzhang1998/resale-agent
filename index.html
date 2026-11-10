@@ -612,13 +612,16 @@ function renderMemo(m, calls, openTrace) {
   stripBtn.type = "button";
   wrap.append(stripBtn);
 
-  // the memo: headline, rationale and key factors stay visible
+  // the memo: takeaway, Why, Watch out, then one short Assumed line (bullets only when several)
   const body = el("div", "memo-body");
-  body.innerHTML = `<p class="headline">${cite(m.headline, m)}</p><p>${cite(m.rationale, m)}</p>
+  const list = xs => `<ul>${xs.map(x => `<li>${cite(x, m)}</li>`).join("")}</ul>`;
+  const assumed = m.assumptions || [];
+  body.innerHTML = `<p class="headline">${cite(m.headline, m)}</p>
     <p class="confline">${esc(m.confidence[0].toUpperCase() + m.confidence.slice(1))} confidence: ${cite(m.confidence_reason, m)}</p>
-    <hr class="divider"><h3>Key factors</h3><ul>${(m.key_factors || []).map(k => `<li>${cite(k, m)}</li>`).join("")}</ul>
-    ${m.assumptions?.length ? `<div class="assumed"><b>Assumed:</b><ul>${m.assumptions.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
-    <hr class="divider"><h3>Limitations</h3><ul>${(m.limitations || []).map(x => `<li>${cite(x, m)}</li>`).join("")}</ul>`;
+    <hr class="divider"><h3>Why</h3>${list(m.why || [])}
+    ${(m.watch_out || []).length ? `<h3>Watch out</h3>${list(m.watch_out)}` : ""}
+    ${assumed.length ? `<div class="assumed"><i>Assumed: ${assumed.length <= 2 ? assumed.map(esc).join(" ")
+      : `</i><ul>${assumed.map(a => `<li><i>${esc(a)}</i></li>`).join("")}</ul><i>`}</i></div>` : ""}`;
   const draftSlot = el("div");
   body.append(draftSlot);
   wrap.append(body);
@@ -651,7 +654,10 @@ function compsSection(m) {
   const g = m.grade;
   const gradeLine = g ? `<p class="small muted">Your grade: <b>${esc(g.label)}</b>. ${g.n_matching} of ${g.n} comps match it (${Object.entries(g.by_grade).map(([k, n]) => `${n} ${esc(k)}`).join(", ")}).
     All stay in the set; they're weighted toward your grade${g.weighted_median != null ? `, for a weighted median of ${money(g.weighted_median)}` : ""}${g.differs ? ` vs ${money(g.used_median)} for all comps` : ""}.</p>` : "";
-  body.innerHTML = `${priceStrip(m)}${gradeLine}
+  // the statistics live here, not in the memo prose
+  const cm = m.comp_median || {};
+  const caption = cm.median != null ? `<p class="small muted">Median ${money(cm.median)} ${cm.basis === "item_price" ? "(item price)" : "(price + shipping)"} across ${cm.n < cm.of ? `the ${cm.n} of ${cm.of} that list shipping` : `all ${cm.of}`}; middle half ${money(cm.q1)}–${money(cm.q3)}.</p>` : "";
+  body.innerHTML = `${priceStrip(m)}${caption}${gradeLine}
     <div class="funnel"><div><b>${m.comps_found}</b><span>found on eBay</span></div><div><b>${m.comps_after_title_filter}</b><span>after title filter</span></div><div><b>${m.comps_kept}</b><span>kept after review</span></div></div>
     ${reasons.length ? `<div class="small muted" style="margin-bottom:6px">Filtered out (${excludedN}) and why</div><div class="pills" style="margin-bottom:14px">${reasons.map((r, i) => `<span ${stickerAttrs(r.label, STICKER_COLORS[i % STICKER_COLORS.length])} title="${esc(r.details.join(", "))}"><b>${r.n}</b> ${esc(r.label)}</span>`).join("")}</div>` : ""}`;
   body.append(compsTable(m));
@@ -757,7 +763,7 @@ function retailSection(m) {
     if (ref.successor) body += `<p class="small muted">${esc(m.retail_status?.note || "No current retail price for this exact model, so this is its successor: a looser ceiling.")}</p>`;
     peek = `${ref.role === "premium" ? "premium" : "ceiling"} ${money(ref.price)}${x ? ` · ratio ${x.toFixed(2)}` : ""}`;
   }
-  if (m.new_vs_retail) body += `<p><span ${stickerAttrs("New below retail", "coral")}>New below retail</span> Sealed new listings on eBay ask a median ${money(m.new_vs_retail.median)}, ${Math.round((1 - m.new_vs_retail.ratio) * 100)}% under the ${money(m.new_vs_retail.retail_price)} retail price.</p>`;
+  // new-below-retail is a Why bullet in the memo, so it isn't repeated here
   if (m.retail?.length) {
     body += `<div class="tablewrap"><table><thead><tr><th>Retailer</th><th>Offer</th><th class="num">Price</th><th class="num hide-sm">Was</th></tr></thead>
       <tbody>${m.retail.map(x => `<tr><td>${esc(x.retailer)}</td><td class="title"><a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.listed_as || x.title)}">${esc(x.title)}</a> ${cite(`[${x.id}]`, m)}${x.model_note ? `<div class="small muted">${esc(x.model_note)}</div>` : ""}</td>

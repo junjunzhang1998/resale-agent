@@ -233,7 +233,7 @@ def laptop_variant_exclusion(title: str, variant: str) -> str | None:
 
 # Consoles: a bundle with extra games or controllers prices as more than the console. The seller's
 # own extras ("with 1 controller") are fine; disc and digital editions are different models.
-CONSOLE_BUNDLE = r"\bbundle\b|\b(2|3|4|two|three|four)\s*(x\s*)?controllers?\b|\b(with|w/|\+|plus|&)\s*(\d+\s+)?(games?|titles)\b|\bgames? included\b|\b\d+\s+games\b"
+CONSOLE_BUNDLE = r"bundle\b|\bextra (dualsense|controller)|\b(2|3|4|two|three|four)\s*(x\s*)?controllers?\b|\b(with|w/|\+|plus|&)\s*(\d+\s+)?(games?|titles)\b|\bgames? included\b|\b\d+\s+games\b"
 
 
 def _seller_words(item: "Item") -> str:
@@ -485,11 +485,10 @@ class Memo(BaseModel):
     price_low: float
     price_high: float
     headline: str
-    rationale: str
-    key_factors: list[str]
+    why: list[str]  # the bullets code leaves to the Writer (it adds its own comps / new-price / grade ones)
+    watch_out: list[str]  # item-specific risks only
     confidence: Literal["low", "medium", "high"]
     confidence_reason: str
-    limitations: list[str]
 
 
 # --- Run state, shared by the tools. The model never sees it. ---
@@ -712,8 +711,14 @@ def do_review(state: ResearcherState, exclude: list[Exclusion]) -> dict:
     """Apply the researcher's exclusions, then build the finding: every number in it from code."""
     run, brief = state.run, state.brief
     # Exclusions add up: a second search and review must not bring back what the first excluded
+    overruled = []
     for e in exclude:
         if e.id in state.shown:
+            # Retail: who is a mainstream store, and whether an offer is new, are code's calls (rule b).
+            # A reviewer excluding Walmart's own offer as "inflated / marketplace" is overruled.
+            if brief.researcher == "retail" and RETAIL_JUDGEMENT.search(e.reason or "") and not RETAIL_PRODUCT_REASON.search(e.reason or ""):
+                overruled.append({"id": e.id, "reason": e.reason})
+                continue
             state.reviewed.setdefault(e.id, {"id": e.id, "title": run.sources[e.id]["title"], "reason": review_reason(e.reason), "by": "review"})
     reviewed = list(state.reviewed.values())
     unknown = [e.id for e in exclude if e.id not in state.shown]
@@ -766,8 +771,16 @@ def do_review(state: ResearcherState, exclude: list[Exclusion]) -> dict:
         "n_kept": len(kept),
         "n_excluded_in_review": len(reviewed),
         "unknown_ids_ignored": unknown,
+        "overruled_by_code": overruled,  # retail exclusions on price / seller / condition grounds, which code decides
         "stats": finding.get("stats_by_condition") or finding["stats"],
     }
+
+
+# Retail review reasons that are code's decision, not the reviewer's: price level, seller type, new vs used
+RETAIL_JUDGEMENT = re.compile(r"inflat|overpric|mark[- ]?up|scalp|too (high|expensive)|high price|price (is )?(too )?high|third[- ]party"
+                              r"|marketplace|reseller|pre-?owned|\bused\b|refurb|renewed|not (a )?(first[- ]party|official)", re.I)
+# ...unless the reason is also about the product itself, which is the reviewer's call
+RETAIL_PRODUCT_REASON = re.compile(r"different|bundle|edition|digital|model|variant|accessor|\bgames?\b|controllers?\b|not slim|pro\b", re.I)
 
 
 def review_reason(reason: str) -> str:
@@ -917,8 +930,12 @@ def find_gaps(findings: list[dict], item: "Item | None" = None) -> list[str]:
     retail_queries = [q for f in retail for q in f["queries"]]
     if retail and not boutique and not any(f["n_kept"] for f in retail) and any(f["only_resale_listings"] for f in retail) \
             and len(set(retail_queries)) < 2:
-        gaps.append(f"Retail search for '{retail_queries[0] if retail_queries else ''}' returned only resale listings. Try once more with "
-                    "the full product name a store would use (brand, model and product type, e.g. 'Dyson V8 Cordless Vacuum'); "
+        # Extra words often push Google Shopping to resale ("Nintendo Switch OLED Model" found only eBay;
+        # "Nintendo Switch OLED" found Nintendo's own store): first try the seller's plain product name
+        tried = {re.sub(r"\W+", " ", q).strip().lower() for q in retail_queries}
+        plain = next((q for q in (item.product, item.search_query) if item and q and re.sub(r"\W+", " ", retail_query(q)).strip().lower() not in tried), None) if item else None
+        how = f"with exactly '{retail_query(plain)}'" if plain else "with the full product name a store would use (brand, model and product type, e.g. 'Dyson V8 Cordless Vacuum')"
+        gaps.append(f"Retail search for '{retail_queries[0] if retail_queries else ''}' returned only resale listings. Try once more {how}; "
                     "not a successor model.")
     for f in findings:
         for where, error in f["errors"].items():
@@ -1088,8 +1105,8 @@ Price range (price_low to price_high, in dollars):
   Q1 and the median: active listings skew high because overpriced items sit unsold.
 - comps.grade, when present, is the seller's eBay sub-grade (Pre-owned - Good, ...). Every comp
   stays in; comps.anchor_median weights them toward that grade. Anchor on comps.anchor_median.
-  When comps.grade.note is set, the grade median differs from the used median: code adds that
-  note to the key factors, so don't restate it.
+  When comps.grade.note is set, the grade median differs from the used median: code writes
+  that bullet, so don't restate it.
 - Adjust for the seller's condition detail, what's included, and the condition_tiers spread.
 - Handbags (item_profile.category "handbag"): size, leather and hardware change the price; name
   the ones the comps share, e.g. "medium caviar flaps with gold hardware".
@@ -1104,18 +1121,18 @@ Price range (price_low to price_high, in dollars):
   - "premium" (ratio > 1): the item resells above retail (out of stock, limited, discontinued).
     Say so with the ratio, e.g. "used listings ask 1.4x the $199 retail price", and price
     from the comps alone. For an everyday item (not vintage, collectible or luxury) code adds a
-    limitation flagging it and caps confidence at medium: lean toward Q1, not the median.
+    watch-out flagging it and caps confidence at medium: lean toward the low end of the range.
   - null: no retail price. retail_status.note says why, in code's words: use its meaning and
     never contradict it. "boutique_only" means the brand sells new only in its boutiques: say
     so, and never call the item discontinued. "discontinued" / "not_found": say retail couldn't
     be checked online. "search_failed": the search errored; say the retail price couldn't be
     checked, and don't call the item discontinued or unavailable. "no_mainstream": only third-party
     sellers list it new; say there's no mainstream retail price and don't quote theirs.
-- new_vs_retail, when present, means sealed-new listings on eBay sit far below retail. Code adds
-  its sentence to the key factors: don't restate it, but you may rely on it in the rationale.
+- new_vs_retail, when present, means sealed-new listings on eBay sit far below retail. Code
+  writes that bullet: don't restate it.
 - If the comps came from a broadened search (adjacent variant or condition), say so.
 - item_profile.similar_items true (vintage, handmade, antique): the comps are similar items, not
-  the same piece. Code opens the rationale with a sentence saying so: don't repeat it. Describe
+  the same piece. Code adds a watch-out saying so: don't repeat it. Describe
   what the comps share (e.g. "vintage handmade queen quilts") and keep the range wide.
 
 Counts: comps.kept is the one comp count. Use it whenever you say how many comps there are. A
@@ -1126,30 +1143,33 @@ Medians: the seller's condition has one median, comps.stats.median, and comps.me
 how to name it: quote that figure exactly, with its basis, everywhere. condition_tiers covers only
 the other conditions; when you quote one, say it's from the broader condition search, e.g. "new
 listings ask a median $150 in the broader condition search".
-Exclusions: end the rationale with comps.exclusion_sentence, copied exactly. Write no other
-exclusion counts anywhere. You may add, without numbers, that special editions or custom
-colorways were left out.
+Exclusions: never mention excluded listings or their counts: the page shows them.
 
-Writing:
-- headline: one line, the range and why, e.g. "List at $70–$78 with free shipping: just under
-  the $77 median of 9 comparable used listings [E3][E8]."
-- rationale: 2 to 4 sentences, then comps.exclusion_sentence. key_factors: 2 to 4 bullets
-  (condition, shipping, retail discounts, included accessories, best offer).
+Writing (short and plain; each fact once; no "Q1", "IQR", "quartile", "price + shipping basis"):
+- headline: ONE plain sentence, at most 25 words: the range, free shipping if most comps ship
+  free, and why in everyday words, e.g. "List at $75-80 with free shipping, just under what most
+  similar used pairs are asking right now."
+- why: code writes the comparable-listings bullet, and the new-price bullet when new_vs_retail is
+  set, and the grade bullet when comps.grade.note is set (code_why lists them). Write exactly
+  why_slots more bullets, each a DIFFERENT fact from code's and each other's: condition, what's
+  included, Best Offer (only when comps.best_offer_share is 0.3 or more), shipping, or for
+  handbags size/leather/hardware. Each bullet: at most 25 words, starts with a 1-3 word label and
+  a colon ("Buyers negotiate: ..."), states a number, and cites a listing whose own price it
+  quotes, e.g. "Buyers negotiate: 17 of 32 comps accept Best Offer, like this $93 pair [E51]".
+- watch_out: 0 to 2 bullets, only risks specific to this item the seller can act on (e.g. "USB-C
+  cases ask a little more than Lightning: if yours is USB-C, aim for the top of the range").
+  Never: asking vs sold prices, active listings skewing high, exclusions, retail availability,
+  authenticity, or a repeat of an assumption. Code adds the item-specific warnings it knows
+  (code_watch_out): don't repeat them.
+- confidence_reason: one short sentence in plain words.
 
 Citations:
 - A listing's own price ends with its tag: "$93 [E3]", "new at Best Buy for $249.95 [R1]". Tag a
   listing only when the number is that listing's price, total or shipping.
-- A statistic (median, Q1, weighted median, a range endpoint taken from one) gets no listing tag:
-  name its basis instead, e.g. "median $77.49 across 9 comps", "Q1 of $75.25 across the 22 of 32
-  comps that list shipping".
+- A statistic (a median, a range endpoint taken from one) gets no listing tag.
 - Use only tags listed in sources. Never invent a tag or a number.
-- Best Offer: mention it only when comps.best_offer_share is 0.3 or more.
 
-confidence: never higher than max_confidence. confidence_reason: one sentence (comp count and
-price spread).
-limitations: always say asking prices are not sold prices and active listings skew high; add
-every data gap (few comps, no retail price, broadened search, many exclusions). Leave
-authenticity out: for luxury items code adds that limitation.
+confidence: never higher than max_confidence.
 Plain, specific sentences.""",
     model=MODEL,
     model_settings=SETTINGS,
@@ -1395,7 +1415,8 @@ def count_mismatches(texts: list[str], kept: int) -> list[int]:
 def fix_counts(memo: "Memo", kept: int) -> "Memo":
     """The last resort when the Writer keeps a wrong comp count. In the headline and the confidence
     reason (about the comps by design) the number becomes the kept count; elsewhere the sentence
-    is dropped, since a wrong count may stand for some other subset and guessing which is worse."""
+    (a Why bullet) is dropped, since a wrong count may stand for some other subset and guessing
+    which is worse."""
     def wrong_at(text: str) -> list:
         return [m for m in COUNT_CLAIM.finditer(text) if int(m.group(1)) != kept
                 and not re.search(r"\b(excluded|excluding|dropped|removed|left out)\b", text[max(0, m.start() - 25):m.start()].lower())]
@@ -1405,14 +1426,10 @@ def fix_counts(memo: "Memo", kept: int) -> "Memo":
             text = text[:m.start(1)] + str(kept) + text[m.end(1):]
         return text
 
-    def drop(text: str) -> str:
-        return " ".join(s for s in SENTENCE.split(text) if not wrong_at(s))
-
     return memo.model_copy(update={
         "headline": renumber(memo.headline),
         "confidence_reason": renumber(memo.confidence_reason),
-        "rationale": drop(memo.rationale),
-        "key_factors": [k for k in memo.key_factors if not wrong_at(k)],
+        "why": [k for k in memo.why if not wrong_at(k)],
     })
 
 
@@ -1602,6 +1619,10 @@ def writer_input(run: Run, cap: tuple[str, str]) -> str:
         "retail_reference": retail_reference(run),
         "retail_status": retail_status(run),
         "new_vs_retail": new_vs_retail(run),
+        # the bullets code writes itself (its numbers), so the Writer covers other facts
+        "code_why": code_why(run),
+        "why_slots": max(0, 3 - len(code_why(run))),
+        "code_watch_out": code_watch_out(run),
         "item_profile": item_profile(run.item),
         "no_new_retail_found": no_new_retail(run) and retail_reference(run) is None,
         "findings": findings,
@@ -1659,45 +1680,137 @@ _EXCLUDED = r"\b(?:exclud\w*|filtered out|dropped|removed|left out)\b"
 EXCLUSION_COUNT = re.compile(rf"{_COUNT}.*{_EXCLUDED}|{_EXCLUDED}.*{_COUNT}", re.I)
 
 
-def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
-    """Put the sentences code owns into the memo, in place of any the Writer wrote itself: the
-    exclusion breakdown (same data as the chips), the grade and new-vs-retail key factors, and the
-    authenticity limitation for luxury items."""
-    sentence = exclusion_sentence(comp_funnel(run))
-    parts = [s for s in SENTENCE.split(clean["rationale"].strip()) if s]
-    own = [s for s in parts if EXCLUSION_COUNT.search(s)]
-    if own and not all(s.strip() == sentence for s in own):
-        warnings.append("the Writer's exclusion counts were replaced with the code-generated breakdown")
-    clean["rationale"] = " ".join([s for s in parts if not EXCLUSION_COUNT.search(s)] + [sentence])
-    clean["key_factors"] = [k for k in clean["key_factors"] if not EXCLUSION_COUNT.search(k)]
-    clean["limitations"] = [x for x in clean["limitations"] if not EXCLUSION_COUNT.search(x)]
-    # Best Offer only when a meaningful share of comps take offers
-    if best_offer_share(run) < BEST_OFFER_SHARE:
-        clean["key_factors"] = [k for k in clean["key_factors"] if not BEST_OFFER.search(k)]
-        clean["rationale"] = " ".join(s for s in SENTENCE.split(clean["rationale"]) if not BEST_OFFER.search(s))
-    # Code's factors first; a Writer factor on the same topic, or a near-copy of another, is dropped
-    gap, grade = new_vs_retail(run), grade_summary(run)
-    added = [gap["sentence"]] if gap else []
-    writer = [k for k in clean["key_factors"] if not (gap and NEW_BELOW_RETAIL_TOPIC.search(k))]
-    if grade and grade["note"]:
-        added.append(grade["note"])
-        writer = [k for k in writer if not GRADE_TOPIC.search(k)]
-    clean["key_factors"] = dedupe_factors(added + writer)
-    if item_profile(run.item)["luxury"]:
-        clean["limitations"] = [x for x in clean["limitations"] if "authentic" not in x.lower()] + [AUTH_LIMITATION]
+def _dollars(x: float | None) -> str:
+    """$81 for a memo sentence (whole dollars; the tables keep the cents)."""
+    return "?" if x is None else f"${x:,.0f}"
+
+
+CONDITION_WORDS = {"new": "sealed new", "open_box": "open-box", "like_new": "like-new", "used": "used",
+                   "refurbished": "refurbished", "for_parts": "for-parts"}
+
+
+def code_why(run: Run, price_high: float | None = None) -> list[str]:
+    """The Why bullets code writes, because only code has their numbers: the comps (count, the range
+    most ask, cited to the listings at its two ends, and the median), sealed-new competition, and
+    the seller's grade when it prices differently."""
+    out = []
+    ids = kept_comp_ids(run)
+    basis, st = comp_basis(run)
+    if ids and st.get("median") is not None:
+        priced = [s for s in ids if _basis_value(run.sources[s], basis) is not None]
+        def at(target):  # the listing priced nearest a quartile, quoted at its own price
+            return min(priced, key=lambda s: abs(_basis_value(run.sources[s], basis) - target))
+        lo, hi = at(st["q1"]), at(st["q3"])
+        a, b = _basis_value(run.sources[lo], basis), _basis_value(run.sources[hi], basis)
+        spread = f"{_dollars(a)} [{lo}] to {_dollars(b)} [{hi}]" if lo != hi else f"about {_dollars(a)} [{lo}]"
+        out.append(f"Comparable listings: {len(ids)} {CONDITION_WORDS.get(run.item.condition, run.item.condition)} listings "
+                   f"mostly ask {spread}, with a median of {_dollars(st['median'])}.")
+    if gap := new_vs_retail(run):
+        ref = retail_reference(run)
+        # the retail price (a listing's own, so tagged) before the median (a statistic, so not)
+        retail = f"{_dollars(ref['price'])} at {ref['retailer']} [{ref['id']}]" if ref["id"] else f"about {_dollars(ref['price'])} at major stores"
+        share = "about half that" if 0.4 <= gap["ratio"] <= 0.6 else f"{round((1 - gap['ratio']) * 100)}% less"
+        tail = f", so a used one much above {_dollars(price_high)} loses to new" if price_high else ""
+        out.append(f"New is cheap: it's {retail}, and sealed new ones on eBay ask {share} (median {_dollars(gap['median'])}){tail}.")
+    if (g := grade_summary(run)) and g["note"]:
+        cond = CONDITION_WORDS.get(run.item.condition, run.item.condition)
+        out.append(f"Your grade matters: {g['label']} listings ask a median {_dollars(g['matching_median'])}, "
+                   f"vs {_dollars(g['used_median'])} for all {cond} comps.")
+    return out
+
+
+def code_watch_out(run: Run) -> list[str]:
+    """Item-specific warnings code knows from the data."""
+    out = []
+    if item_profile(run.item)["similar_items"]:
+        out.append("Similar items, not exact matches: a one-of-a-kind piece's price depends on its own pattern, maker and condition.")
+    if lines := mixed_lines(run):
+        out.append(f"Comps mix product lines ({', '.join(lines)}) that price differently: name your exact model for a tighter range.")
     if above_retail(run):
         ref = retail_reference(run)
-        clean["limitations"] = [f"Used listings ask more than the retail ceiling ({_money(ref['comp_median'])} vs {ceiling_text(ref)}): for an "
-                                "everyday item that usually means the comps include newer models, bundles or new units, so check them "
-                                "before listing."] + clean["limitations"]
-    if item_profile(run.item)["similar_items"]:
-        clean["rationale"] = f"{SIMILAR_NOTE} {clean['rationale']}"
-        clean["limitations"] = [SIMILAR_NOTE.split(":")[0] + "; the range is a rough guide."] + clean["limitations"]
-    for k in ("headline", "rationale", "confidence_reason"):
-        clean[k] = fix_stat_citations(clean[k], run)
-    for k in ("key_factors", "limitations"):
-        clean[k] = [fix_stat_citations(x, run) for x in clean[k]]
+        out.append(f"Used listings ask more than retail ({_dollars(ref['comp_median'])} vs {_dollars(ref['price'])}): check the comps for "
+                   "newer models, bundles or new units before listing.")
+    if any(f["broadened"] for f in comps_findings(run)):
+        out.append("Few exact matches: some comps come from an adjacent variant or condition.")
+    if item_profile(run.item)["luxury"]:
+        out.append(AUTH_LIMITATION)
+    return out
 
+
+# Writer text that says what the page already says elsewhere
+GENERIC = re.compile(r"\basking prices?\b.*\b(not|aren'?t|rather than)\b.*\bsold\b|\bnot sold prices?\b|\bactive listings\b.*\bskew"
+                     r"|\bskew(s)? high\b|\bsit unsold\b|\bcompleted sales\b", re.I)
+RETAIL_TOPIC = re.compile(r"\bretail (price|ceiling)\b.*\b(could(n'?t| not)|not (be )?(found|verified|checked)|unavailable)\b"
+                          r"|\bdiscontinued\b|\bboutiques?\b|\bno (online|mainstream) retail\b", re.I)
+EXCLUSION_TOPIC = re.compile(r"\bexclu\w*|\bfiltered out\b|\bleft out\b", re.I)
+# the comps bullet is code's: a Writer bullet restating the median or the typical range repeats it
+COMPS_TOPIC = re.compile(r"\bmedian\b|^\W*comparable listings\b|\bmostly ask\b|\btypical(ly)? ask", re.I)
+JARGON = re.compile(r"\bQ[13]\b|\bIQR\b|\bquartiles?\b|\bprice \+ shipping\b|\bbasis\b|\bmiddle half\b", re.I)
+MAX_WORDS = 25
+
+
+def _n_words(text: str) -> int:
+    return len(TAG.sub("", text).split())
+
+
+def _first_sentence(text: str) -> str:
+    """Up to the first sentence end ('.', '!' or '?' then a space), whatever follows it."""
+    return (re.split(r"(?<=[.!?])\s+(?=\S)", (text or "").strip()) or [""])[0].strip()
+
+
+def fallback_headline(run: Run, low: float, high: float) -> str:
+    """Code's own takeaway, when the Writer's is jargon or too long."""
+    comps = comp_rows(run)
+    free = comps and sum(c["shipping"] == 0 for c in comps) * 2 >= len(comps)
+    median = comp_basis(run)[1].get("median")
+    where = "just under" if median and high <= median else "around"
+    cond = CONDITION_WORDS.get(run.item.condition, run.item.condition)
+    return f"List at {_dollars(low)}–{_dollars(high).lstrip('$')}{' with free shipping' if free else ''}, {where} what most similar {cond} listings ask right now."
+
+
+def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
+    """Shape the Writer's draft into the short memo: a one-sentence takeaway, up to 3 Why bullets
+    (code's comps / new-price / grade bullets first, then the Writer's on other topics), up to 3
+    item-specific Watch out bullets, a one-sentence confidence reason. Each fact once: generic
+    caveats, exclusion counts, retail-status repeats and restated assumptions are dropped."""
+    # takeaway: one plain sentence
+    head = _first_sentence(clean["headline"])
+    if JARGON.search(head) or _n_words(head) > MAX_WORDS or not head:
+        warnings.append("headline rewritten by code: the Writer's had jargon or ran long")
+        head = fallback_headline(run, clean["price_low"], clean["price_high"])
+    clean["headline"] = head
+
+    def keep(text: str) -> bool:
+        return bool(text.strip()) and not (GENERIC.search(text) or EXCLUSION_COUNT.search(text) or EXCLUSION_TOPIC.search(text))
+
+    # Why: code's bullets, then the Writer's on topics code didn't cover
+    mine = code_why(run, clean["price_high"])
+    theirs = [w for w in clean["why"] if keep(w) and not COMPS_TOPIC.search(w) and not RETAIL_TOPIC.search(w)]
+    if new_vs_retail(run):
+        theirs = [w for w in theirs if not NEW_BELOW_RETAIL_TOPIC.search(w)]
+    if (g := grade_summary(run)) and g["note"]:
+        theirs = [w for w in theirs if not GRADE_TOPIC.search(w)]
+    if best_offer_share(run) < BEST_OFFER_SHARE:
+        theirs = [w for w in theirs if not BEST_OFFER.search(w)]
+    clean["why"] = dedupe_factors(mine + theirs)[:3]
+
+    # Watch out: code's item-specific warnings, then the Writer's; never generic or a repeat
+    assumed = [_words(a) for a in run.assumptions]
+    def restates_assumption(text):
+        w = _words(text)
+        return any(w and a and len(w & a) / len(w | a) >= 0.5 for a in assumed)
+    theirs = [w for w in clean["watch_out"] if keep(w) and not RETAIL_TOPIC.search(w) and not restates_assumption(w)
+              and "authentic" not in w.lower()]
+    clean["watch_out"] = dedupe_factors(code_watch_out(run) + theirs)[:3]
+
+    # confidence reason: one short sentence
+    reason = _first_sentence(clean["confidence_reason"])
+    clean["confidence_reason"] = reason if _n_words(reason) <= MAX_WORDS else " ".join(reason.split()[:MAX_WORDS]).rstrip(",;:") + "."
+
+    for k in ("headline", "confidence_reason"):
+        clean[k] = fix_stat_citations(clean[k], run)
+    for k in ("why", "watch_out"):
+        clean[k] = [fix_stat_citations(x, run) for x in clean[k]]
 
 BEST_OFFER = re.compile(r"\bbest[- ]offers?\b|\baccepts?(ing)? offers\b|\bmake an offer\b|\bopen to offers\b", re.I)
 NEW_BELOW_RETAIL_TOPIC = re.compile(r"\bsealed\b|\bnew\b.*\b(below|under|less than|cheaper than)\b.*\bretail\b|\bbelow retail\b", re.I)
@@ -1821,8 +1934,8 @@ def split_assumptions(assumptions: list[str]) -> list[str]:
 
 def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dict]:
     """Check the Writer's memo in code: citations, confidence cap, price range sanity."""
-    texts = {"headline": memo.headline, "rationale": memo.rationale, "confidence_reason": memo.confidence_reason}
-    lists = {"key_factors": memo.key_factors, "limitations": memo.limitations}
+    texts = {"headline": memo.headline, "confidence_reason": memo.confidence_reason}
+    lists = {"why": memo.why, "watch_out": memo.watch_out}
     cited, unknown, clean = [], [], {}
     for k, v in texts.items():
         clean[k], c, u = check_citations(v, run.sources)
@@ -1837,7 +1950,9 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
             unknown += u
 
     warnings = []
-    writer_texts = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"]]
+    writer_texts = [clean["headline"], clean["confidence_reason"], *clean["why"]]
+    low, high = sorted((round(memo.price_low, 2), round(memo.price_high, 2)))
+    clean.update(price_low=low, price_high=high)
     apply_code_text(run, clean, warnings)
     # a tag on a listing no researcher kept points the reader at something the price doesn't use
     used = {i for f in run.findings for i in f["kept_ids"]}
@@ -1850,19 +1965,18 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
             return ""
         return re.sub(r"\s*\[(" + "|".join(map(re.escape, sorted(dropped))) + r")\]", sub, text) if dropped else text
 
-    for k in ("headline", "rationale", "confidence_reason"):
+    for k in ("headline", "confidence_reason"):
         clean[k] = strip_excluded(clean[k])
-    for k in ("key_factors", "limitations"):
+    for k in ("why", "watch_out"):
         clean[k] = [strip_excluded(x) for x in clean[k]]
     if stripped:
         warnings.append(f"removed citations to excluded listings: {', '.join(sorted(stripped, key=lambda s: (s[0], int(s[1:]))))}")
     # what's cited after code's edits (stat tags dropped, code sentences added)
-    final = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"], *clean["limitations"]]
+    final = [clean["headline"], clean["confidence_reason"], *clean["why"], *clean["watch_out"]]
     cited = [i for t in final for i in re.findall(r"\[([ER]\d+)\]", t) if i in run.sources]
     excluded = {e["id"] for f in run.findings for e in f["excluded"]}
     if wrong := sorted(set(cited) & excluded - set(kept_comp_ids(run)), key=lambda s: int(s[1:])):
         warnings.append(f"cites listings that were excluded from the comps: {', '.join(wrong)}")
-    low, high = sorted((round(memo.price_low, 2), round(memo.price_high, 2)))
     ref = retail_reference(run)
     if ref and ref["role"] == "ceiling" and high > ref["price"]:
         warnings.append(f"the range tops the retail ceiling ({ceiling_text(ref)})")
@@ -1873,8 +1987,8 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
     confidence = min(memo.confidence, cap[0], key=order.get)
     if confidence != memo.confidence:
         warnings.append(f"confidence lowered from {memo.confidence} to {confidence}: {cap[1]}")
-        clean["confidence_reason"] = f"{clean['confidence_reason']} (Capped: {cap[1]}.)"
-    clean.update(price_low=low, price_high=high, confidence=confidence)
+        clean["confidence_reason"] = cap[1][0].upper() + cap[1][1:] + "."  # the reason it's capped, in one sentence
+    clean["confidence"] = confidence
     check = {
         "cited": sorted(set(cited), key=lambda s: (s[0], int(s[1:]))),
         "unknown_tags_stripped": unknown,
@@ -1967,6 +2081,13 @@ def retail_title(title: str, product: str, successor: bool = False) -> tuple[str
     return clean.strip() or title, "; ".join(notes)
 
 
+def assumed_line(assumptions: list[str]) -> str:
+    """One short italic line, or short bullets when there are several."""
+    if len(assumptions) <= 2:
+        return "*Assumed: " + " ".join(a.rstrip(".") + "." for a in assumptions) + "*"
+    return "*Assumed:*\n" + "\n".join(f"- *{a}*" for a in assumptions)
+
+
 def render(run: Run, memo: dict, rows: dict, cited: list[str]) -> tuple[str, dict]:
     """The memo as markdown, plus the sources it cites. Every table number comes from code."""
     funnel = comp_funnel(run)
@@ -1980,17 +2101,19 @@ def render(run: Run, memo: dict, rows: dict, cited: list[str]) -> tuple[str, dic
         "",
         f"**Confidence: {memo['confidence']}.** {memo['confidence_reason']}",
         "",
-        memo["rationale"],
-        "",
-        "### Key factors",
-        *[f"- {k}" for k in memo["key_factors"]],
+        "### Why",
+        *[f"- {k}" for k in memo["why"]],
     ]
+    if memo["watch_out"]:
+        lines += ["", "### Watch out", *[f"- {x}" for x in memo["watch_out"]]]
     if run.assumptions:
-        lines += ["", "### Assumptions", *[f"- {a}" for a in run.assumptions]]
+        lines += ["", assumed_line(run.assumptions)]
+    cm = comp_median(run)
     lines += [
         "",
         f"### Comparable listings ({n_kept} kept)",
-        f"{n_found} found, {n_title} after the title filter, {n_kept} after review. {CONDITION_LABELS.get(run.item.condition, run.item.condition)} {comp_median(run)['phrase']}."
+        f"{n_found} found, {n_title} after the title filter, {n_kept} after review. {CONDITION_LABELS.get(run.item.condition, run.item.condition)} "
+        f"{cm['phrase']}; middle half {_money(cm['q1'])} – {_money(cm['q3'])}."
         + (f" Showing {len(table)} spread across the range, cheapest first." if len(table) < n_kept else ""),
         "",
         "| Source | Listing | Condition | Price | Shipping | Total |",
@@ -2023,7 +2146,6 @@ def render(run: Run, memo: dict, rows: dict, cited: list[str]) -> tuple[str, dic
                   f"{_money(r['old_price']) if r['old_price'] else ''} |" for r in rows["retail"]]
     else:
         lines += [status["note"]]
-    lines += ["", "### Limitations", *[f"- {x}" for x in memo["limitations"]]]
 
     shown = list(dict.fromkeys(cited + [r["id"] for r in table] + [r["id"] for r in rows["retail"]]))
     shown.sort(key=lambda s: (s[0], int(s[1:])))
@@ -2055,23 +2177,24 @@ async def write_memo(run: Run) -> tuple[str, dict | None]:
     prompt = writer_input(run, cap)
     draft = (await asyncio.wait_for(Runner.run(writer, prompt, hooks=run.trace, max_turns=2), WRITER_TIMEOUT)).final_output
     kept = len(kept_comp_ids(run))
-    if wrong := count_mismatches([draft.headline, draft.rationale, draft.confidence_reason, *draft.key_factors], kept):
+    if wrong := count_mismatches([draft.headline, draft.confidence_reason, *draft.why], kept):
         # One retry with the exact problem named; if it fails or times out, the first draft stands
         note = (f"\n\nRevise your memo: it gives comp counts {sorted(set(wrong))}, but there are {kept} kept comps. "
                 f"Say {kept} comps, and write any subset as 'N of {kept}' (e.g. '21 of {kept} list shipping'). Change nothing else.")
         try:
             revised = (await asyncio.wait_for(Runner.run(writer, prompt + note, hooks=run.trace, max_turns=2), RECOUNT_TIMEOUT)).final_output
-            still = count_mismatches([revised.headline, revised.rationale, revised.confidence_reason, *revised.key_factors], kept)
+            still = count_mismatches([revised.headline, revised.confidence_reason, *revised.why], kept)
             run.trace.record("writer", "recount", {"counts_found": sorted(set(wrong)), "kept": kept}, {"revised": True, "counts_still_off": sorted(set(still))})
             if len(still) < len(wrong):
                 draft = revised
         except Exception as e:
             run.trace.record("writer", "recount", {"counts_found": sorted(set(wrong)), "kept": kept}, {"revised": False, "error": type(e).__name__})
         # Still off after the retry: code corrects it, so the memo never states a wrong comp count
-        if still := count_mismatches([draft.headline, draft.rationale, draft.confidence_reason, *draft.key_factors], kept):
+        if still := count_mismatches([draft.headline, draft.confidence_reason, *draft.why], kept):
             draft = fix_counts(draft, kept)
             run.trace.record("writer", "recount (code fix)", {"counts_found": sorted(set(still)), "kept": kept},
-                             {"counts_left": count_mismatches([draft.headline, draft.rationale, draft.confidence_reason, *draft.key_factors], kept)})
+                             {"counts_left": count_mismatches([draft.headline, draft.confidence_reason, *draft.why], kept)})
+    run.trace.record("writer", "draft", {}, draft.model_dump())  # before code shapes it: what was kept, cut or replaced
     memo, check = validate_memo(run, draft, cap)
     rows = {"comps": comp_rows(run), "tiers": tier_rows(run), "retail": retail_rows(run)}
     markdown, sources = render(run, memo, rows, check["cited"])

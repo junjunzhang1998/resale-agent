@@ -52,8 +52,8 @@ def kept_titles(r: dict) -> list[str]:
 
 def memo_text(r: dict) -> str:
     m = r["memo"] or {}
-    return " ".join([m.get("headline", ""), m.get("rationale", ""), m.get("confidence_reason", ""),
-                     *m.get("key_factors", []), *m.get("limitations", [])])
+    return " ".join([m.get("headline", ""), m.get("confidence_reason", ""), *m.get("why", []), *m.get("watch_out", []),
+                     *m.get("key_factors", []), *m.get("limitations", []), m.get("rationale", "")])
 
 
 def check(name: str, ok: bool, detail: str = "") -> dict:

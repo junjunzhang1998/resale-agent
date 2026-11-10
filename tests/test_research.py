@@ -291,11 +291,11 @@ def test_retail_reference_is_a_ceiling_below_retail_and_a_premium_above():
     assert premium["role"] == "premium" and premium["resale_to_retail_ratio"] == round(86.5 / 60, 2)
     # a premium is no ceiling: pricing above retail doesn't warn
     run = run_with_sources(12, retail_price=60.0)
-    memo = Memo(price_low=82, price_high=88, headline="h", rationale="r", key_factors=[], confidence="high", confidence_reason="c", limitations=[])
+    memo = Memo(price_low=82, price_high=88, headline="h", why=[], watch_out=[], confidence="high", confidence_reason="c")
     clean, check = research.validate_memo(run, memo, research.confidence_cap(run))
     assert not any("tops the retail ceiling" in w for w in check["warnings"])
     # ...but for an everyday used item, asking above retail is flagged and caps confidence at medium
-    assert clean["confidence"] == "medium" and clean["limitations"][0].startswith("Used listings ask more than the retail ceiling")
+    assert clean["confidence"] == "medium" and clean["watch_out"][0].startswith("Used listings ask more than retail")
     markdown, _ = research.render(run, {**memo.model_dump()}, {"comps": research.comp_rows(run), "tiers": [], "retail": research.retail_rows(run)}, [])
     assert "Resale premium: comps ask 1.44x" in markdown
 
@@ -321,13 +321,14 @@ def test_check_citations_keeps_real_tags_and_strips_invented_ones():
 
 def test_validate_memo_caps_confidence_sorts_range_and_warns_above_retail():
     run = run_with_sources(3)
-    memo = Memo(price_low=260, price_high=90, headline="List at $81 [E1] [E99]", rationale="r [R1]", key_factors=["E2 at $82"],
-                confidence="high", confidence_reason="lots of data", limitations=["asking prices are not sold prices"])
+    memo = Memo(price_low=260, price_high=90, headline="List at $81 [E1] [E99]", why=["E2 at $82", "r [R1]"],
+                confidence="high", confidence_reason="lots of data", watch_out=["asking prices are not sold prices"])
     clean, check = research.validate_memo(run, memo, research.confidence_cap(run))
     assert (clean["price_low"], clean["price_high"]) == (90, 260)
-    assert clean["confidence"] == "low" and "Capped" in clean["confidence_reason"]
-    assert clean["headline"] == "List at $81 [E1] " and clean["key_factors"] == ["[E2] at $82"]
-    assert check["unknown_tags_stripped"] == ["E99"] and set(check["cited"]) == {"E1", "E2", "R1"}
+    assert clean["confidence"] == "low" and clean["confidence_reason"].startswith("Only 3 comparable listings")  # the cap, in one sentence
+    assert clean["headline"] == "List at $81 [E1]" and clean["why"][1:] == ["[E2] at $82", "r [R1]"]
+    assert clean["watch_out"] == []  # a generic caveat: the page says it once, under the price
+    assert check["unknown_tags_stripped"] == ["E99"] and set(check["cited"]) >= {"E1", "E2", "R1"}
     assert any("tops the retail ceiling" in w for w in check["warnings"])
 
 
@@ -340,8 +341,8 @@ def test_no_comps_says_so_instead_of_guessing():
 
 def test_render_cites_only_real_sources_and_reports_the_funnel():
     run = run_with_sources(20)
-    memo = {"price_low": 80, "price_high": 90, "headline": "h", "confidence": "high", "confidence_reason": "c", "rationale": "r [E3]",
-            "key_factors": ["k"], "limitations": ["l"]}
+    memo = {"price_low": 80, "price_high": 90, "headline": "h", "confidence": "high", "confidence_reason": "c", "why": ["r [E3]", "k"],
+            "watch_out": ["l"]}
     rows = {"comps": research.comp_rows(run), "tiers": [], "retail": research.retail_rows(run)}
     markdown, sources = research.render(run, memo, rows, ["E3"])
     assert "20 found, 20 after the title filter, 20 after review" in markdown
@@ -493,8 +494,8 @@ def test_draft_cleanup_drops_title_placeholders_and_splits_bullets():
 
 def test_writer_is_asked_once_more_when_its_comp_counts_are_off(monkeypatch):
     run = run_with_sources(12)
-    good = Memo(price_low=82, price_high=88, headline="List at $82-$88 from 12 kept comps [E3]", rationale="r", key_factors=[],
-                confidence="high", confidence_reason="c", limitations=["asking prices are not sold prices"])
+    good = Memo(price_low=82, price_high=88, headline="List at $82-$88 from 12 kept comps [E3]", why=[],
+                confidence="high", confidence_reason="c", watch_out=[])
     bad = good.model_copy(update={"headline": "List at $82-$88 from 44 comparable listings [E3]"})
     prompts = []
 
@@ -630,10 +631,10 @@ def test_luxury_memo_gets_the_authenticity_limitation_and_no_authenticity_assump
         run.register("E", str(i), {"title": f"Chanel {i}", "price": price, "shippingCost": 0.0, "totalPrice": price, "condition": "Pre-owned - Good",
                                    "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": f"https://www.ebay.com/itm/{i}"})
     run.findings.append(fake_finding(n_kept=8))
-    memo = Memo(price_low=5000, price_high=5400, headline="h", rationale="r.", key_factors=[], confidence="medium", confidence_reason="c",
-                limitations=["Asking prices are not sold prices.", "Listings may not be authentic."])
+    memo = Memo(price_low=5000, price_high=5400, headline="h", why=[], confidence="medium", confidence_reason="c",
+                watch_out=["Asking prices are not sold prices.", "Listings may not be authentic.", "Chanel sizes are in centimeters: check yours."])
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["limitations"] == ["Asking prices are not sold prices.", research.AUTH_LIMITATION]
+    assert clean["watch_out"] == [research.AUTH_LIMITATION, "Chanel sizes are in centimeters: check yours."]
 
 
 # --- One funnel, one exclusion sentence ---
@@ -656,17 +657,16 @@ def test_funnel_counts_each_listing_once_and_adds_up():
     assert research.exclusion_sentence(f) == "Excluded 3 of 13 listings: 2 different model and 1 case only."
 
 
-def test_writers_own_exclusion_counts_are_replaced_with_codes():
+def test_exclusions_stay_out_of_the_memo_prose():
     run = run_with_sources(10)
     run.findings[0]["excluded"] = [{"id": "E90", "title": "x", "reason": "single earbud / one side", "by": "code"}]
     memo = Memo(price_low=82, price_high=88, headline="h", confidence="high", confidence_reason="c",
-                rationale="Comps sit near $83 [E3]. Excluded 4 listings (3 single earbuds, 1 case only). Prices dropped 20% this month.",
-                key_factors=["3 single earbuds were removed", "Free shipping is common"], limitations=["Asking prices are not sold prices."])
+                why=["Comps sit near $83 [E3].", "3 single earbuds were removed", "Free shipping is common"],
+                watch_out=["Excluded 4 listings (3 single earbuds, 1 case only).", "Prices dropped 20% this month."])
     clean, check = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["rationale"] == ("Comps sit near $83 [E3]. Prices dropped 20% this month. "
-                                  "Excluded 1 of 11 listings: 1 single earbud / one side.")
-    assert clean["key_factors"] == ["Free shipping is common"]
-    assert any("exclusion counts were replaced" in w for w in check["warnings"])
+    assert clean["why"][1:] == ["Comps sit near $83 [E3].", "Free shipping is common"]
+    assert clean["watch_out"] == ["Prices dropped 20% this month."]  # a percentage isn't an exclusion count
+    assert not any("xclu" in t or "removed" in t for t in [clean["headline"], *clean["why"], *clean["watch_out"]])
 
 
 def test_condition_row_names_its_subset_when_shipping_is_missing():
@@ -720,9 +720,10 @@ def test_comps_are_weighted_toward_the_sellers_grade_and_both_medians_reported()
     assert "Used median $116.00 across all 12 comps" in g["note"] and "Pre-owned - Good (your grade) ask a median $93.00" in g["note"]
     assert research.anchor_median(run) == g["weighted_median"]
     assert sum(r["grade_match"] for r in research.comp_rows(run)) == 4  # every comp still listed
-    memo = Memo(price_low=90, price_high=100, headline="h", rationale="r.", key_factors=["k"], confidence="high", confidence_reason="c", limitations=[])
+    memo = Memo(price_low=90, price_high=100, headline="h", why=["k"], confidence="high", confidence_reason="c", watch_out=[])
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["key_factors"][0] == research.check_citations(g["note"], run.sources)[0] and clean["key_factors"][1] == "k"
+    assert clean["why"][1] == "Your grade matters: Pre-owned - Good listings ask a median $93, vs $116 for all used comps."
+    assert clean["why"][2] == "k" and len(clean["why"]) == 3
 
 
 # --- Sealed new far below retail ---
@@ -739,9 +740,10 @@ def test_new_listings_far_below_retail_become_a_key_factor():
     gap = research.new_vs_retail(run)
     assert gap["median"] == 132.5 and gap["ratio"] == round(132.5 / 249.95, 2)
     assert "47% below retail ($249.95 at Best Buy [R1])" in gap["sentence"]
-    memo = Memo(price_low=82, price_high=88, headline="h", rationale="r.", key_factors=["k"], confidence="high", confidence_reason="c", limitations=[])
+    memo = Memo(price_low=82, price_high=88, headline="h", why=["k"], confidence="high", confidence_reason="c", watch_out=[])
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["key_factors"][0].startswith("Sealed new listings on eBay ask a median $132.50")
+    assert clean["why"][1] == ("New is cheap: it's $250 at Best Buy [R1], and sealed new ones on eBay ask about half that (median $132), "
+                               "so a used one much above $88 loses to new.")
     tiers["tier_ids"] = {"new": ["E13"]}  # too few new listings to say
     assert research.new_vs_retail(run) is None
 
@@ -761,20 +763,21 @@ def new_below_retail_run():
 
 
 def memo_with(**kw):
-    base = dict(price_low=82, price_high=88, headline="h", rationale="r.", key_factors=[], confidence="high", confidence_reason="c", limitations=[])
+    base = dict(price_low=82, price_high=88, headline="h", why=[], watch_out=[], confidence="high", confidence_reason="c")
     return Memo(**{**base, **kw})
 
 
 # --- Key factors appear once ---
 
 
-def test_key_factors_are_deduped_against_codes_own():
+def test_why_bullets_are_deduped_against_codes_own():
     run = new_below_retail_run()
     gap = research.new_vs_retail(run)["sentence"]
-    memo = memo_with(key_factors=[gap, "Sealed new units on eBay sell well below the $249.95 retail price [R1].",
+    memo = memo_with(why=[gap, "Sealed new units on eBay sell well below the $249.95 retail price [R1].",
                                   "Free shipping is standard.", "Free shipping is standard!"])
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["key_factors"] == [gap, "Free shipping is standard."]
+    assert len(clean["why"]) == 3 and clean["why"][0].startswith("Comparable listings: 12 used listings mostly ask")
+    assert clean["why"][1].startswith("New is cheap") and clean["why"][2] == "Free shipping is standard."
 
 
 # --- Stats are cited to their basis, listings only for their own price ---
@@ -808,7 +811,7 @@ def test_a_listing_tag_stays_only_on_that_listings_own_price():
 def test_validated_memo_lists_only_the_citations_that_survive():
     run = run_with_sources(12)
     clean, check = research.validate_memo(run, memo_with(headline="List at $81 [E1], near the median $86.50 [E5][E6]."), research.confidence_cap(run))
-    assert "[E5]" not in clean["headline"] and check["cited"] == ["E1"]
+    assert "[E5]" not in clean["headline"] and "E1" in check["cited"] and not {"E5", "E6"} & set(check["cited"])
 
 
 # --- Best Offer only when offers are common ---
@@ -816,14 +819,14 @@ def test_validated_memo_lists_only_the_citations_that_survive():
 
 def test_best_offer_is_a_factor_only_when_30_percent_of_comps_take_offers():
     run = run_with_sources(10)
-    memo = memo_with(rationale="Comps cluster near $86. Enable Best Offer to catch buyers.", key_factors=["Best Offer gives room to haggle", "Free shipping"])
+    memo = memo_with(why=["Best Offer gives room to haggle", "Free shipping"])
     for sid in ("E1", "E2"):  # 2 of 10 take offers
         run.sources[sid]["buyingOptions"] = ["FIXED_PRICE", "BEST_OFFER"]
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["key_factors"] == ["Free shipping"] and "Best Offer" not in clean["rationale"]
+    assert clean["why"][1:] == ["Free shipping"]
     run.sources["E3"]["buyingOptions"] = ["FIXED_PRICE", "BEST_OFFER"]  # 3 of 10: 30%
     clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
-    assert clean["key_factors"][0] == "Best Offer gives room to haggle"
+    assert clean["why"][1:] == ["Best Offer gives room to haggle", "Free shipping"]
     assert research.offers_common({"comps": [{"best_offer": True}, {"best_offer": False}, {"best_offer": False}, {"best_offer": False}]}) is False
 
 
@@ -1020,9 +1023,9 @@ def test_one_of_a_kind_items_are_priced_from_similar_items_at_low_confidence():
     run = run_with_sources(12)
     run.item = quilt
     assert research.confidence_cap(run) == ("low", "the comps are similar items, not exact matches")
-    clean, _ = research.validate_memo(run, memo_with(rationale="Quilts ask about $90."), research.confidence_cap(run))
-    assert clean["rationale"].startswith("These comps are similar items, not exact matches")
-    assert clean["confidence"] == "low" and clean["limitations"][0].startswith("These comps are similar items")
+    clean, _ = research.validate_memo(run, memo_with(why=["Quilts ask about $90."]), research.confidence_cap(run))
+    assert clean["watch_out"][0].startswith("Similar items, not exact matches")
+    assert clean["confidence"] == "low"
 
 
 @pytest.mark.parametrize("text, weapon", [
@@ -1136,8 +1139,8 @@ def test_citations_to_excluded_listings_are_removed():
     run.register("E", "x", {"title": "bundle", "price": 700.0, "shippingCost": 0.0, "totalPrice": 700.0, "condition": "Used",
                             "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": "https://www.ebay.com/itm/x"})  # E13
     run.findings[0]["excluded"] = [{"id": "E13", "title": "bundle", "reason": "bundle with extras", "by": "code"}]
-    clean, check = research.validate_memo(run, memo_with(rationale="Bundles ask $700 [E13]; singles $81 [E1]."), research.confidence_cap(run))
-    assert "[E13]" not in clean["rationale"] and "[E1]" in clean["rationale"]
+    clean, check = research.validate_memo(run, memo_with(why=["Bundles ask $700 [E13]; singles $81 [E1]."]), research.confidence_cap(run))
+    assert not any("[E13]" in w for w in clean["why"]) and any("$81 [E1]" in w for w in clean["why"])
     assert "E13" not in check["cited"] and any("removed citations to excluded listings: E13" in w for w in check["warnings"])
 
 
@@ -1224,14 +1227,14 @@ def test_for_parts_pricing_is_capped_at_medium_and_skips_working_phones(monkeypa
 def test_code_sentences_with_other_counts_are_not_count_mismatches():
     run = new_below_retail_run()  # code adds "... across 4 sealed new listings ..."
     clean, check = research.validate_memo(run, memo_with(headline="List at $82-$88 from 12 kept comps"), research.confidence_cap(run))
-    assert "sealed new listings" in clean["key_factors"][0] and not any("comp counts" in w for w in check["warnings"])
+    assert clean["why"][1].startswith("New is cheap: it's $250") and not any("comp counts" in w for w in check["warnings"])
 
 
 def test_a_count_still_wrong_after_the_retry_is_fixed_in_code(monkeypatch):
     run = run_with_sources(12)
     bad = Memo(price_low=82, price_high=88, headline="List at $82-$88 from 44 comparable listings", confidence="high",
-               confidence_reason="Based on 44 comps.", rationale="Comps cluster near $86. The 18 listings with free shipping ask more.",
-               key_factors=["44 comps agree", "Free shipping is common"], limitations=["Asking prices are not sold prices."])
+               confidence_reason="Based on 44 comps.", watch_out=[],
+               why=["44 comps agree", "Free shipping is common", "The 18 listings with free shipping ask more."])
 
     class Result:
         final_output = bad
@@ -1242,7 +1245,7 @@ def test_a_count_still_wrong_after_the_retry_is_fixed_in_code(monkeypatch):
     monkeypatch.setattr(research.Runner, "run", fake_run)
     _, memo = asyncio.run(research.write_memo(run))
     assert "12 comparable listings" in memo["headline"] and memo["confidence_reason"].startswith("Based on 12 comps")
-    assert "18 listings" not in memo["rationale"] and memo["key_factors"] == ["Free shipping is common"]
+    assert memo["why"][1:] == ["Free shipping is common"]  # the two bullets with wrong counts are gone
     assert not any("comp counts" in w for w in memo["citation_check"]["warnings"])
     assert any(c["name"] == "recount (code fix)" for c in run.trace.calls)
 
@@ -1272,3 +1275,99 @@ def test_apparel_category():
     def cat(product):
         return research.item_profile(ITEM.model_copy(update={"product": product, "search_query": product}))["category"]
     assert cat("Lululemon Align leggings") == "apparel" and cat("Nike Air Force 1 '07") == "apparel"
+
+
+# --- Retail review can't overrule code on seller type, price level or condition ---
+
+
+def test_reviewer_cannot_drop_a_mainstream_offer_as_inflated_or_preowned(monkeypatch):
+    offer = {"price": "$799.95", "extracted_price": 799.95, "old_price": None, "extracted_old_price": None, "second_hand_condition": None, "is_resale": False}
+    offers = [{**offer, "title": "Sony PlayStation 5 Slim Disc Console", "retailer": "Walmart", "link": "https://s/1", "product_id": "1"},
+              {**offer, "title": "Sony PlayStation 5 Slim Console", "retailer": "GameStop", "extracted_price": 649.99, "link": "https://s/2", "product_id": "2"},
+              {**offer, "title": "Sony PlayStation 5 Slim Disc Console + Gran Turismo", "retailer": "Target", "link": "https://s/3", "product_id": "3"}]
+    monkeypatch.setattr(market, "retail_search", lambda query, **kw: {"query": query, "items": offers})
+    run = Run(item=PS5, assumptions=[], trace=Trace())
+    state = ResearcherState(run, brief("retail", ()), 1)
+    asyncio.run(research.do_search_retail(state, "PS5 Slim Disc"))
+    out = research.do_review(state, [Exclusion(id="R1", reason="inflated third-party seller price via Walmart marketplace"),
+                                     Exclusion(id="R2", reason="pre-owned from GameStop"),
+                                     Exclusion(id="R3", reason="bundle with a game")])
+    assert [o["id"] for o in out["overruled_by_code"]] == ["R1", "R2"]
+    assert state.finding["kept_ids"] == ["R1", "R2"]  # the bundle exclusion is about the product: it stands
+    run.findings.append(state.finding)
+    ref = research.retail_reference(run)
+    assert ref["price"] == round((799.95 + 649.99) / 2, 2) and ref["basis"].startswith("median of 2 major retailers")
+
+
+def test_run_together_bundle_titles_are_bundles():
+    assert research.console_exclusion("PS5 Slim Disc 1TB Console with Extra ControllerBundle", "PS5 Slim disc with 1 controller") == "bundle with extras"
+    assert research.console_exclusion("Sony PS5 Slim Console with Extra DualSense", "PS5 Slim disc with 1 controller") == "bundle with extras"
+
+
+# --- The short memo: one takeaway, up to 3 Why, 1-3 item-specific Watch out, each fact once ---
+
+
+def test_takeaway_with_jargon_or_too_long_is_replaced_by_codes_plain_one():
+    run = run_with_sources(12)
+    for bad in ("List at $82-$88: between the Q1 of $84 and the median $86.50 (price + shipping).",
+                " ".join(["word"] * 30)):
+        clean, check = research.validate_memo(run, memo_with(headline=bad), research.confidence_cap(run))
+        assert clean["headline"] == "List at $82–88 with free shipping, around what most similar used listings ask right now."  # $88 > the $86.50 median
+        assert any("headline rewritten" in w for w in check["warnings"])
+    clean, _ = research.validate_memo(run, memo_with(headline="List at $82-88 with free shipping. Most pairs ask more."), research.confidence_cap(run))
+    assert clean["headline"] == "List at $82-88 with free shipping."  # one sentence
+
+
+def test_why_has_at_most_three_different_facts_and_code_writes_the_comps_one():
+    run = run_with_sources(12)
+    memo = memo_with(why=["Median $86.50 across 12 comps [E5].", "Condition: light wear on the case.", "Shipping: most ship free, like $81 [E1].",
+                          "Buyers negotiate: room for offers.", "Condition: light wear on the case."])
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert len(clean["why"]) == 3
+    assert clean["why"][0].startswith("Comparable listings: 12 used listings mostly ask $84 [E4] to $89 [E9], with a median of $86")
+    assert "Median $86.50 across 12 comps [E5]." not in clean["why"]  # comps are code's bullet
+    assert clean["why"][1:] == ["Condition: light wear on the case.", "Shipping: most ship free, like $81 [E1]."]
+
+
+def test_watch_out_keeps_only_item_specific_points():
+    run = run_with_sources(12)
+    run.assumptions = ["Port version not given: comps include both Lightning and USB-C."]
+    memo = memo_with(watch_out=["Asking prices are not sold prices, and active listings skew high.",
+                                "Port version not given: comps include both Lightning and USB-C.",
+                                "Retail price couldn't be verified online.",
+                                "8 listings were excluded as accessories.",
+                                "USB-C cases ask a little more than Lightning: if yours is USB-C, aim for the top of the range."])
+    clean, _ = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert clean["watch_out"] == ["USB-C cases ask a little more than Lightning: if yours is USB-C, aim for the top of the range."]
+
+
+def test_confidence_reason_is_one_short_sentence():
+    run = run_with_sources(12)
+    long = "Twelve kept comps sit close together. " + " ".join(["more"] * 40)
+    clean, _ = research.validate_memo(run, memo_with(confidence_reason=long), research.confidence_cap(run))
+    assert clean["confidence_reason"] == "Twelve kept comps sit close together."
+
+
+def test_rendered_memo_says_each_thing_once():
+    run = run_with_sources(20)
+    run.assumptions = ["Port version not given: comps include both Lightning and USB-C."]
+    run.findings[0]["excluded"] = [{"id": "E90", "title": "x", "reason": "case only", "by": "code"}]
+    clean, _ = research.validate_memo(run, memo_with(why=["Buyers negotiate: room for offers."]), research.confidence_cap(run))
+    markdown, _ = research.render(run, clean, {"comps": research.comp_rows(run), "tiers": [], "retail": research.retail_rows(run)}, [])
+    memo_part = markdown.split("### Comparable listings")[0]
+    assert "### Why" in memo_part and "Limitations" not in markdown and "Key factors" not in markdown
+    assert markdown.count("not a prediction of what it will sell for") == 1
+    assert "Excluded" not in memo_part and markdown.count("Excluded 1 of 21 listings") == 1  # only with the comps
+    assert "*Assumed: Port version not given: comps include both Lightning and USB-C.*" in memo_part
+    assert "middle half" in markdown.split("### Comparable listings")[1] and "middle half" not in memo_part
+    assert research.assumed_line(["a", "b", "c"]).startswith("*Assumed:*\n- *a*")
+
+
+def test_resale_only_retry_names_the_sellers_plain_product_name():
+    switch = ITEM.model_copy(update={"product": "Nintendo Switch OLED", "search_query": "Nintendo Switch OLED"})
+    f = fake_finding("retail", n_kept=0, only_resale=True)
+    f["queries"] = ["Nintendo Switch OLED Console"]
+    [gap] = research.find_gaps([fake_finding(), f], switch)
+    assert "Try once more with exactly 'Nintendo Switch OLED'" in gap
+    f["queries"] = ["Nintendo Switch OLED"]  # the plain name already tried: the generic advice
+    assert "full product name a store would use" in research.find_gaps([fake_finding(), f], switch)[0]
