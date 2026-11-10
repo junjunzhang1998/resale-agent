@@ -827,6 +827,7 @@ function summarize(c) {
   if (c.name === "assess_item") return r.ready ? `ready: ${r.item?.product || ""}` : "needs more detail";
   if (c.name === "validate_citations") return `${plural(r.cited?.length || 0, "citation")} valid, ${plural(r.unknown_tags_stripped?.length || 0, "invalid tag")} removed`;
   if (c.name === "recount") return r.revised ? "comp counts corrected" : "comp counts left as drafted";
+  if (c.name === "takeaway: rewritten by code") return r.reason || "details";
   return "details";
 }
 

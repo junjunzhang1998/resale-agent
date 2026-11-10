@@ -1313,7 +1313,9 @@ def test_takeaway_with_jargon_or_too_long_is_replaced_by_codes_plain_one():
                 " ".join(["word"] * 30)):
         clean, check = research.validate_memo(run, memo_with(headline=bad), research.confidence_cap(run))
         assert clean["headline"] == "List at $82–88 with free shipping, around the $87 median asking price of similar used listings."  # $88 > the median
-        assert any("headline rewritten" in w for w in check["warnings"])
+        # a trace step for the Writer, not a user-facing warning
+        assert not any("rewritten" in w for w in check["warnings"])
+        assert run.trace.calls[-1]["agent"] == "writer" and run.trace.calls[-1]["name"] == "takeaway: rewritten by code"
     clean, _ = research.validate_memo(run, memo_with(headline="List at $82-88 with free shipping. Most pairs ask more."), research.confidence_cap(run))
     assert clean["headline"] == "List at $82-88 with free shipping."  # one sentence
 

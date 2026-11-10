@@ -1852,7 +1852,7 @@ def fallback_headline(run: Run, low: float, high: float) -> str:
             f"{_dollars(median)} median asking price of similar {cond} listings.")
 
 
-def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
+def apply_code_text(run: Run, clean: dict) -> None:
     """Shape the Writer's draft into the short memo: a one-sentence takeaway, up to 3 Why bullets
     (code's comps / new-price / grade bullets first, then the Writer's on other topics), up to 3
     item-specific Watch out bullets, a one-sentence confidence reason. Each fact once: generic
@@ -1860,8 +1860,11 @@ def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
     # takeaway: one plain sentence
     head = _first_sentence(asking_not_sold(clean["headline"]))
     if JARGON.search(head) or VAGUE.search(head) or _n_words(head) > MAX_WORDS or not head:
-        warnings.append("headline rewritten by code: the Writer's had jargon, a vague phrase or ran long")
-        head = fallback_headline(run, clean["price_low"], clean["price_high"])
+        # Routine shaping, not a problem with the memo: a trace step, not a user-facing warning
+        rewritten = fallback_headline(run, clean["price_low"], clean["price_high"])
+        run.trace.record("writer", "takeaway: rewritten by code", {"draft": head},
+                         {"takeaway": rewritten, "reason": "the Writer's had jargon, a vague phrase or ran long"})
+        head = rewritten
     clean["headline"] = head
 
     def keep(text: str) -> bool:
@@ -2041,7 +2044,7 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
     writer_texts = [clean["headline"], clean["confidence_reason"], *clean["why"]]
     low, high = sorted((round(memo.price_low, 2), round(memo.price_high, 2)))
     clean.update(price_low=low, price_high=high)
-    apply_code_text(run, clean, warnings)
+    apply_code_text(run, clean)
     # a tag on a listing no researcher kept points the reader at something the price doesn't use
     used = {i for f in run.findings for i in f["kept_ids"]}
     dropped = {e["id"] for f in run.findings for e in f["excluded"]} - used
