@@ -187,7 +187,7 @@ def fake_finding(researcher="exact_comps", n_kept=10, broadened=False, kept_pref
             "errors": {}, "conditions": ["used"], "stats": {"price_with_shipping": {"median": 1}, "median": 1, "min": 1}}
 
 
-def test_only_resale_retail_results_are_final_not_a_gap(monkeypatch):
+def test_only_resale_retail_results_get_one_retry_then_are_final(monkeypatch):
     resale = [{"title": "AirPods Pro 2", "retailer": "eBay", "is_resale": True, "link": f"https://e/{i}", "product_id": str(i),
                "price": "$90", "extracted_price": 90.0, "old_price": None, "extracted_old_price": None, "second_hand_condition": "used"} for i in range(3)]
     monkeypatch.setattr(market, "retail_search", lambda query, **kw: {"query": query, "items": resale})
@@ -195,10 +195,26 @@ def test_only_resale_retail_results_are_final_not_a_gap(monkeypatch):
     asyncio.run(research.do_search_retail(state, "AirPods Pro 2"))
     research.do_review(state, [])
     assert state.finding["only_resale_listings"] is True and state.finding["n_kept"] == 0
-    assert research.find_gaps([fake_finding(), state.finding]) == []
-    assert "Don't retry retail" in research.lead_summary(state.finding)["result"]
+    # one short query: try once more with the store's full name ("Dyson V8" found Dyson's own store that way)
+    [gap] = research.find_gaps([fake_finding(), state.finding])
+    assert "Try once more with the full product name" in gap and "not a successor" in gap
+    asyncio.run(research.do_search_retail(state, "Apple AirPods Pro 2nd Generation Wireless Earbuds"))
+    research.do_review(state, [])
+    assert research.find_gaps([fake_finding(), state.finding]) == []  # two queries: final
     state.run.findings.append(state.finding)
     assert research.no_new_retail(state.run)
+
+
+def test_comps_mixing_product_lines_cap_confidence_at_medium():
+    run = run_with_sources(12)
+    run.item = ITEM.model_copy(update={"product": "Dyson V8", "search_query": "Dyson V8"})
+    for sid, line in (("E1", "Animal"), ("E2", "Absolute"), ("E3", "Origin")):
+        run.sources[sid]["title"] = f"Dyson V8 {line} Cordless Vacuum"
+    assert research.mixed_lines(run) == ["absolute", "animal", "origin"]
+    level, reason = research.confidence_cap(run)
+    assert level == "medium" and "mix product lines" in reason
+    run.item = run.item.model_copy(update={"product": "Dyson V8 Animal"})  # the seller named the line: no mix
+    assert research.mixed_lines(run) == []
 
 
 def test_gaps_flag_few_comps_and_no_retail():
@@ -276,7 +292,10 @@ def test_retail_reference_is_a_ceiling_below_retail_and_a_premium_above():
     # a premium is no ceiling: pricing above retail doesn't warn
     run = run_with_sources(12, retail_price=60.0)
     memo = Memo(price_low=82, price_high=88, headline="h", rationale="r", key_factors=[], confidence="high", confidence_reason="c", limitations=[])
-    assert not any("retail" in w for w in research.validate_memo(run, memo, research.confidence_cap(run))[1]["warnings"])
+    clean, check = research.validate_memo(run, memo, research.confidence_cap(run))
+    assert not any("tops the retail ceiling" in w for w in check["warnings"])
+    # ...but for an everyday used item, asking above retail is flagged and caps confidence at medium
+    assert clean["confidence"] == "medium" and clean["limitations"][0].startswith("Used listings ask more than the retail ceiling")
     markdown, _ = research.render(run, {**memo.model_dump()}, {"comps": research.comp_rows(run), "tiers": [], "retail": research.retail_rows(run)}, [])
     assert "Resale premium: comps ask 1.44x" in markdown
 
@@ -896,10 +915,9 @@ def test_ceiling_is_the_major_retailer_median_not_one_cheap_deal():
     assert not any("ceiling" in w for w in check["warnings"])
 
 
-def test_ceiling_falls_back_to_all_offers_and_a_lone_offer_is_cited():
-    run = af1_retail_run([("Shoe Palace", 120.0, None), ("Hibbett", 110.0, None), ("SneakerShack", 40.0, None)])
-    ref = research.retail_reference(run)
-    assert ref["price"] == 115.0 and ref["outlier_ids"] == ["R3"] and ref["basis"].startswith("median of 2 retailers")
+def test_no_ceiling_without_a_mainstream_store_and_a_lone_offer_is_cited():
+    # only independent / marketplace sellers: no ceiling at all, rather than their markup
+    assert research.retail_reference(af1_retail_run([("Shoe Palace", 120.0, None), ("Hibbett", 110.0, None), ("Walmart - Seller", 99.0, None)])) is None
     lone = research.retail_reference(af1_retail_run([("Best Buy", 249.95, None)]))
     assert lone["id"] == "R1" and lone["price"] == 249.95 and lone["lowest_note"] is None
     assert research.ceiling_text(lone) == "$249.95 at Best Buy [R1]"
@@ -924,9 +942,9 @@ def test_marketplace_sellers_on_a_big_store_are_not_the_store():
 
 def test_ceiling_counts_each_retailer_once_at_its_lowest_price():
     # one store's ten colorways don't outvote another store
-    offers = [("farfetch.com", 125.0, None)] * 5 + [("farfetch.com", 99.0, None)] * 3 + [("trendxparc.com", 90.0, None)]
+    offers = [("Foot Locker", 125.0, None)] * 5 + [("Foot Locker", 99.0, None)] * 3 + [("Champs Sports", 90.0, None)]
     ref = research.retail_reference(af1_retail_run(offers))
-    assert ref["price"] == 94.5 and len(ref["pool_ids"]) == 2 and ref["basis"].startswith("median of 2 retailers")
+    assert ref["price"] == 94.5 and len(ref["pool_ids"]) == 2 and ref["basis"].startswith("median of 2 major retailers")
 
 
 def test_a_tag_before_its_price_is_checked_against_that_price():
@@ -1121,3 +1139,136 @@ def test_citations_to_excluded_listings_are_removed():
     clean, check = research.validate_memo(run, memo_with(rationale="Bundles ask $700 [E13]; singles $81 [E1]."), research.confidence_cap(run))
     assert "[E13]" not in clean["rationale"] and "[E1]" in clean["rationale"]
     assert "E13" not in check["cited"] and any("removed citations to excluded listings: E13" in w for w in check["warnings"])
+
+
+# --- (b) third-party sellers never set the ceiling ---
+
+
+def test_third_party_sellers_are_dropped_in_code_and_mean_no_mainstream_price(monkeypatch):
+    offer = {"title": "Sony PlayStation 5 Slim Disc Console", "price": "$799", "extracted_price": 799.0, "old_price": None,
+             "extracted_old_price": None, "second_hand_condition": None, "is_resale": False}
+    offers = [{**offer, "retailer": r, "link": f"https://s/{i}", "product_id": str(i)}
+              for i, r in enumerate(["Tech For Less", "The Device Depot", "Walmart - Seller", "uShopMall.com"])]
+    monkeypatch.setattr(market, "retail_search", lambda query, **kw: {"query": query, "items": offers})
+    run = Run(item=PS5, assumptions=[], trace=Trace())
+    state = ResearcherState(run, brief("retail", ()), 1)
+    asyncio.run(research.do_search_retail(state, "PS5 Slim"))
+    assert not state.shown and all(d["reason"].startswith(research.THIRD_PARTY) for d in state.dropped)  # decided in code
+    research.do_review(state, [])
+    run.findings.append(state.finding)
+    assert state.finding["no_mainstream"] and research.find_gaps(run.findings, PS5) == []  # final: no retry, no successor
+    assert research.retail_reference(run) is None
+    status = research.retail_status(run)
+    assert status["status"] == "no_mainstream" and status["note"].startswith("No mainstream retail price")
+
+
+@pytest.mark.parametrize("retailer, major", [
+    ("Best Buy", True), ("Walmart", True), ("Walmart - Seller", False), ("PlayStation Direct", True), ("Dyson Official", True),
+    ("Gap", True), ("Singapore Gap Outlet - Seller", False), ("Tech For Less", False), ("farfetch.com", False),
+])
+def test_mainstream_retailers(retailer, major):
+    assert research.is_major_retailer(retailer, "Dyson V8") is major
+
+
+# --- (a) used above retail on an everyday item ---
+
+
+def test_above_retail_is_flagged_only_for_everyday_used_items():
+    run = run_with_sources(12, retail_price=60.0)  # comps ~$86 vs $60 retail
+    assert research.above_retail(run)
+    for item in (CHANEL, ITEM.model_copy(update={"product": "Vintage handmade quilt", "search_query": "vintage handmade quilt"}),
+                 ITEM.model_copy(update={"product": "AirPods Pro 2 limited edition"}), ITEM.model_copy(update={"condition": "new"})):
+        run.item = item
+        assert not research.above_retail(run), item.product
+
+
+# --- (b2) appliance model matching ---
+
+
+@pytest.mark.parametrize("title, product, reason", [
+    ("Dyson V10 Animal Cordless Vacuum", "Dyson V8", "different model: V10"),
+    ("Dyson V8 Animal SV10 Cordless Vacuum", "Dyson V8", None),  # SV10 is the V8's own model number
+    ("Dyson V8 V10 V11 compatible brush", "Dyson V8", None),  # names the V8 too: left to the review
+    ("Dyson V8 Absolute Cordless", "Dyson V8 Animal", "different model line: absolute"),
+    ("Dyson V8 Animal+ Cordless", "Dyson V8 Animal", None),
+    ("Samsung Galaxy S24 128GB", "Samsung Galaxy S23", "different model: S24"),
+    ("Sony PS4 Slim 1TB", "Sony PS5 Slim", "different model: PS4"),
+])
+def test_model_codes_and_product_lines(title, product, reason):
+    assert research.model_code_exclusion(title, product) == reason
+
+
+# --- (c) for parts ---
+
+
+def test_for_parts_pricing_is_capped_at_medium_and_skips_working_phones(monkeypatch):
+    run = run_with_sources(12)
+    run.item = ITEM.model_copy(update={"condition": "for_parts", "condition_detail": "doesn't turn on"})
+    assert research.confidence_cap(run)[0] == "medium"
+    titles = ["Apple iPhone 12 128GB unlocked - does not turn on", "Apple iPhone 12 128GB unlocked cracked screen works fine",
+              "Apple iPhone 12 128GB unlocked for parts"]
+    records = [{"itemId": str(i), "title": t, "price": 120.0, "currency": "USD", "shippingCost": 0.0, "totalPrice": 120.0,
+                "condition": "For parts or not working", "conditionId": "7000", "buyingOptions": ["FIXED_PRICE"],
+                "itemCreationDate": None, "itemWebUrl": f"https://www.ebay.com/itm/{i}", "image": None} for i, t in enumerate(titles)]
+    monkeypatch.setattr(market, "ebay_search", lambda query, condition=None, limit=50, **kw: {"query": query, "filter": "", "total": 3, "items": records})
+    phone = Item(product="Apple iPhone 12", variant="128GB unlocked", condition="for_parts", condition_detail="doesn't turn on", included="",
+                 search_query="iPhone 12 128GB unlocked")
+    state = ResearcherState(Run(item=phone, assumptions=[], trace=Trace()), brief(conditions=["for_parts"]), 1)
+    asyncio.run(research.do_search_ebay(state, "iPhone 12 128GB unlocked", ["for_parts"]))
+    assert [d["reason"] for d in state.dropped] == ["works (yours doesn't): not comparable for parts"] and len(state.shown) == 2
+
+
+# --- (d) comp counts ---
+
+
+def test_code_sentences_with_other_counts_are_not_count_mismatches():
+    run = new_below_retail_run()  # code adds "... across 4 sealed new listings ..."
+    clean, check = research.validate_memo(run, memo_with(headline="List at $82-$88 from 12 kept comps"), research.confidence_cap(run))
+    assert "sealed new listings" in clean["key_factors"][0] and not any("comp counts" in w for w in check["warnings"])
+
+
+def test_a_count_still_wrong_after_the_retry_is_fixed_in_code(monkeypatch):
+    run = run_with_sources(12)
+    bad = Memo(price_low=82, price_high=88, headline="List at $82-$88 from 44 comparable listings", confidence="high",
+               confidence_reason="Based on 44 comps.", rationale="Comps cluster near $86. The 18 listings with free shipping ask more.",
+               key_factors=["44 comps agree", "Free shipping is common"], limitations=["Asking prices are not sold prices."])
+
+    class Result:
+        final_output = bad
+
+    async def fake_run(agent, prompt, **kw):
+        return Result()
+
+    monkeypatch.setattr(research.Runner, "run", fake_run)
+    _, memo = asyncio.run(research.write_memo(run))
+    assert "12 comparable listings" in memo["headline"] and memo["confidence_reason"].startswith("Based on 12 comps")
+    assert "18 listings" not in memo["rationale"] and memo["key_factors"] == ["Free shipping is common"]
+    assert not any("comp counts" in w for w in memo["citation_check"]["warnings"])
+    assert any(c["name"] == "recount (code fix)" for c in run.trace.calls)
+
+
+# --- (e) apparel size and color ---
+
+LULU = ("size 6, black", "Lululemon Align leggings")
+AF1_W7 = ("women's size 7", "Nike Air Force 1 '07")
+
+
+@pytest.mark.parametrize("title, item, reason", [
+    ('lululemon Align Pant 25" Size 6 Black', LULU, None),
+    ('lululemon Align High-Rise Pant 28" Size 4 Black', LULU, "different size: 4"),
+    ("Lululemon Align Leggings Sz 6 Navy", LULU, "different color: navy"),
+    ("Lululemon Align Leggings Black/White Size 6", LULU, None),
+    ("Lululemon Align Leggings Heathered Black", LULU, None),  # size not stated: left to the review
+    ("Nike Air Force 1 '07 Womens Size 7 White", AF1_W7, None),
+    ("Nike Air Force 1 '07 Women's Shoes White", AF1_W7, None),  # the 1 is not a size
+    ("Nike Air Force 1 '07 Womens 8.5 White", AF1_W7, "different size: 8.5"),
+    ("Nike Air Force 1 07 7W Triple White", AF1_W7, None),
+])
+def test_apparel_size_and_color(title, item, reason):
+    assert research.apparel_variant_exclusion(title, *item) == reason
+
+
+def test_apparel_category():
+    def cat(product):
+        return research.item_profile(ITEM.model_copy(update={"product": product, "search_query": product}))["category"]
+    assert cat("Lululemon Align leggings") == "apparel" and cat("Nike Air Force 1 '07") == "apparel"

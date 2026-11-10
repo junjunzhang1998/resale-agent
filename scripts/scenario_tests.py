@@ -101,6 +101,22 @@ def all_titles(pattern: str, label: str):
     return run
 
 
+def no_count_warning(r):
+    w = [x for x in ((r["memo"] or {}).get("citation_check") or {}).get("warnings", []) if "comp counts" in x]
+    return check("no comp-count warning", r["memo"] is not None and not w, "; ".join(w))
+
+
+def ceiling_mainstream_or_none(r):
+    """(b): a ceiling only from big-box/brand stores; otherwise 'no mainstream retail price'."""
+    m = r["memo"] or {}
+    ref, status = m.get("retail_reference"), (m.get("retail_status") or {}).get("status")
+    if ref:
+        names = {x["id"]: x["retailer"] for x in m.get("retail", [])} | {i: s.get("detail", "") for i, s in m.get("sources", {}).items()}
+        ok = all(research.is_major_retailer(names.get(i, ""), m["item"]["product"]) for i in ref.get("pool_ids", []))
+        return check("ceiling only from mainstream stores", ok, f"{research._money(ref['price'])} ({ref.get('basis')})")
+    return check("ceiling only from mainstream stores (none: says no mainstream price)", status == "no_mainstream", str(status))
+
+
 # --- Scenarios: name -> (turns, checks) ---
 
 COLORS = r"\b(navy|blue|grey|gray|green|red|pink|white|brown|beige|purple|olive|tan|camo|burgundy|maroon|teal|orange|yellow|nomad|heathered)\b"
@@ -108,18 +124,24 @@ COLORS = r"\b(navy|blue|grey|gray|green|red|pink|white|brown|beige|purple|olive|
 SCENARIOS = {
     # condition wording
     "cond_sealed_controller": (["brand new sealed PS5 DualSense controller, white"], [has_memo, condition_is("new")]),
-    "cond_af1_worn_once": (["Nike Air Force 1 07 womens size 7, worn once, basically perfect"], [has_memo, condition_is("like_new")]),
+    "cond_af1_worn_once": (["Nike Air Force 1 07 womens size 7, worn once, basically perfect"], [has_memo, condition_is("like_new"), no_count_warning]),
     "cond_switch_open_box": (["Nintendo Switch OLED, open box, never used"], [has_memo, condition_is("open_box")]),
     "cond_iphone_cracked": (["iPhone 12 128GB unlocked, cracked back but works"], [has_memo, condition_is("used"),
         lambda r: [check("lower sub-grade when graded", not (r["memo"] or {}).get("grade") or r["memo"]["grade"]["grade"] in ("Fair", "Poor"),
                          str(((r["memo"] or {}).get("grade") or {}).get("grade")))]]),
-    "cond_iphone_dead": (["iPhone 12 128GB unlocked, doesn't turn on"], [has_memo, condition_is("for_parts")]),
+    "cond_iphone_dead": (["iPhone 12 128GB unlocked, doesn't turn on"], [has_memo, condition_is("for_parts"),
+        lambda r: [check("kept comps are listed for parts", r["memo"] is not None and all("parts" in (c["condition"] or "").lower() for c in r["memo"]["comps"]),
+                         "; ".join(sorted({c["condition"] for c in (r["memo"] or {}).get("comps", [])})))],
+        no_titles(r"(works|working|functional)(?!.*(not|doesn'?t|won'?t))", "no kept comp says it works"),
+        lambda r: [check("confidence capped at medium", (r["memo"] or {}).get("confidence") in ("low", "medium"), str((r["memo"] or {}).get("confidence")))]]),
     "cond_af1_nwot": (["nike air force 1 07, size 7 for womens, new without tags"], [has_memo, condition_is("open_box")]),
     # retail ceiling
     "retail_switch_oled": (["Nintendo Switch OLED, used, good condition"], [has_memo, ceiling_mainstream]),
-    "retail_dyson_v8": (["Dyson V8 cordless vacuum, used, good condition"], [has_memo, ceiling_mainstream]),
+    "retail_dyson_v8": (["Dyson V8 cordless vacuum, used, good condition"], [has_memo, ceiling_mainstream, no_count_warning,
+        no_titles(r"V(7|10|11|12|15)|Gen5", "no V7/V10/V11/V12/V15 or Gen5 in kept comps"),
+        lambda r: [check("no new units in kept comps", r["memo"] is not None and not any(re.search(r"new", c["condition"] or "", re.I) for c in r["memo"]["comps"]))]]),
     # variants
-    "variant_ps5_slim": (["PS5 Slim disc edition, used, with 1 controller"], [has_memo,
+    "variant_ps5_slim": (["PS5 Slim disc edition, used, with 1 controller"], [has_memo, ceiling_mainstream_or_none,
         no_titles(r"\bbundle\b|\b(2|3|4|two|three|four)\s*(x\s*)?controllers?\b|\b(with|w/|\+|plus|&)\s*(\d+\s+)?games?\b|\bgames? included\b|\bdigital\b",
                   "no bundles with extra games/controllers, no digital edition")]),
     "variant_lululemon": (["Lululemon Align leggings size 6, black, used"], [has_memo,

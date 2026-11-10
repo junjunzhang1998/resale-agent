@@ -68,6 +68,9 @@ CATEGORY_PATTERNS = {  # first match wins
     "laptop": r"\bmacbook\b|\blaptop\b|\bnotebook\b|\bthinkpad\b|\bchromebook\b|\bsurface laptop\b|\bxps\b|\bzenbook\b",
     "console": r"\bps[45]\b|\bplaystation\b|\bxbox\b|\bnintendo switch\b|\bswitch (oled|lite)\b|\bsteam deck\b|\bdualsense\b",
     "watch": r"\bwatch\b|\brolex\b|\bsubmariner\b|\bdatejust\b|\bdaytona\b|\bomega\b|\bpatek\b|\baudemars\b|\bcartier\b",
+    "apparel": r"\bleggings?\b|\bjeans\b|\bpants\b|\bdress\b|\b(t-)?shirt\b|\bjacket\b|\bcoat\b|\bhoodie\b|\bsweater\b|\bskirt\b"
+               r"|\bshorts\b|\bblouse\b|\bsweatshirt\b|\bjoggers\b|\blululemon\b|\bsneakers?\b|\bshoes?\b|\bboots?\b"
+               r"|\bair force 1\b|\bair jordan\b|\bjordan \d|\bdunk\b|\byeezy\b|\bair max\b|\bnew balance \d",
     "handbag": r"\b(hand)?bags?\b|\bpurse\b|\btote\b|\bclutch\b|\bflap\b|\bsatchel\b|\bcrossbody\b|\bhobo\b|\bwoc\b"
                r"|\bwallet on chain\b|\bbirkin\b|\bkelly\b|\bspeedy\b|\bneverfull\b|\bpochette\b|\bbackpack\b",
 }
@@ -111,7 +114,7 @@ EXCLUDE_TITLE_PATTERNS = [
     ("single earbud / one side", r"\bsingle\b|^(?!.*\bleft\b.*\bright\b|.*\bright\b.*\bleft\b).*\b(left|right)\s+(side|ear|earbud|airpod|pod|bud|only)s?\b", {"earbuds"}),
     ("for parts / not working", r"\bfor parts\b|\bparts only\b|\bnot working\b|\bbroken\b|\bdamaged\b", None),
     ("lot / multiple units", r"\blot\b|\bbulk\b|\bwholesale\b", None),
-    ("accessory, not the item", r"\bcompatible with\b|\bscreen protector\b|^\W*(case|cover|skin|charger|cable|strap|band)\b", {"earbuds", "phone", "watch", "laptop", "console", "general"}),
+    ("accessory, not the item", r"\bcompatible with\b|\bscreen protector\b|^\W*(case|cover|skin|charger|cable|strap|band)\b", {"earbuds", "phone", "watch", "laptop", "console", "apparel", "general"}),
     ("accessory, not the bag", r"\borgani[sz]er\b|\b(purse |bag )?insert\b|\bshaper\b|\bstrap only\b|\bchain only\b|\bcharm\b"
                                r"|\bfor (chanel|herm[eè]s|louis vuitton|lv|gucci|dior)\b|^\W*(strap|chain|insert)\b", {"handbag"}),
     ("not genuine", r"\breplica\b|\bfake\b|\bclone\b|\bdupe\b|\binspired\b|\blook[- ]?alikes?\b|\bnot (authentic|genuine|real)\b|\bunbranded\b", None),
@@ -231,6 +234,64 @@ def laptop_variant_exclusion(title: str, variant: str) -> str | None:
 # Consoles: a bundle with extra games or controllers prices as more than the console. The seller's
 # own extras ("with 1 controller") are fine; disc and digital editions are different models.
 CONSOLE_BUNDLE = r"\bbundle\b|\b(2|3|4|two|three|four)\s*(x\s*)?controllers?\b|\b(with|w/|\+|plus|&)\s*(\d+\s+)?(games?|titles)\b|\bgames? included\b|\b\d+\s+games\b"
+
+
+def _seller_words(item: "Item") -> str:
+    return item.condition_detail or ""
+
+
+MODEL_CODE = re.compile(r"\b([A-Za-z]{1,3})(\d{1,4})\b")
+# Appliance product lines within a model: a Dyson V8 Animal isn't a V8 Absolute
+PRODUCT_LINES = r"animal|absolute|motorhead|origin|advanced|extra|total clean|fluffy|detect|outsize|complete|cyclone"
+
+
+def model_code_exclusion(title: str, product: str) -> str | None:
+    """'Dyson V8' vs a 'Dyson V10' title, 'Galaxy S23' vs 'S24', 'PS5' vs 'PS4': same letters,
+    another number. A title that also names the product's own code is left to the review. And when
+    the product names a line ('V8 Animal'), a title naming another line is another model."""
+    title, product = title or "", product or ""
+    have = {(p.lower(), n) for p, n in MODEL_CODE.findall(title)}
+    for prefix, number in MODEL_CODE.findall(product):
+        same = {n for p, n in have if p == prefix.lower()}
+        if same and number not in same:
+            return f"different model: {prefix.upper()}{'/'.join(sorted(same, key=int))}"
+    mine = {m.lower() for m in re.findall(rf"\b({PRODUCT_LINES})\b", product, re.I)}
+    theirs = {m.lower() for m in re.findall(rf"\b({PRODUCT_LINES})\b", title, re.I)}
+    if mine and theirs and not mine & theirs:
+        return f"different model line: {', '.join(sorted(theirs))}"
+    return None
+
+
+# Apparel and shoes: a stated size or color that isn't the seller's is another item
+APPAREL_SIZE = re.compile(r"\b(?:size|sz)\.?\s*:?\s*(\d{1,2}(?:\.5)?|xxs|xs|s|m|l|xl|xxl|2xl|3xl)\b"
+                          r"|\b(?:women'?s|womens|wmns|men'?s|mens)\s+(\d{1,2}(?:\.5)?)\b|\b(\d{1,2}(?:\.5)?)\s*(?=(?:w|women'?s|womens|wmns)\b)", re.I)  # lookahead: "'07 Womens 8.5" reads both
+COLORS = ("black", "white", "navy", "blue", "grey", "gray", "green", "red", "pink", "purple", "brown", "beige", "tan", "cream",
+          "ivory", "olive", "yellow", "orange", "burgundy", "maroon", "teal", "khaki", "silver", "gold", "lavender", "coral")
+COLOR_ALIASES = {"gray": "grey", "blk": "black", "onyx": "black"}
+
+
+def _sizes(text: str) -> set[str]:
+    return {next(g for g in m if g).lower() for m in APPAREL_SIZE.findall(text or "")}
+
+
+def _colors(text: str) -> set[str]:
+    words = re.findall(r"[a-z]+", (text or "").lower())
+    return {COLOR_ALIASES.get(w, w) for w in words if COLOR_ALIASES.get(w, w) in COLORS}
+
+
+def apparel_variant_exclusion(title: str, variant: str, product: str = "") -> str | None:
+    """Like storage for phones: a size the title states that isn't the seller's ('size 4' for a
+    size 6), or colors that leave out the seller's ('Navy' for black; 'Black/White' is fine).
+    A title that doesn't say is left to the review. The product's own numbers aren't sizes:
+    'Air Force 1 Womens' is not a size 1."""
+    product_numbers = set(re.findall(r"\d+", product or ""))
+    want, have = _sizes(variant), _sizes(title) - product_numbers
+    if want and have and not want & have:
+        return f"different size: {', '.join(sorted(have))}"
+    want_c, have_c = _colors(variant), _colors(title)
+    if want_c and have_c and not want_c & have_c:
+        return f"different color: {', '.join(sorted(have_c))}"
+    return None
 
 
 def console_exclusion(title: str, item_text: str) -> str | None:
@@ -542,8 +603,12 @@ async def do_search_ebay(state: ResearcherState, query: str, conditions: list[st
                 continue
             reason = title_exclusion(record["title"], _item_text(item), tier, category)
             # Bag sizes (mini, jumbo) are checked as a variant below, not as model tiers
-            if reason is None and category != "handbag":
-                reason = model_exclusion(record["title"], item.product)
+            if reason is None and category not in ("handbag", "apparel"):
+                reason = model_exclusion(record["title"], item.product) or model_code_exclusion(record["title"], item.product)
+            # a for-parts item that doesn't work prices against listings that don't work either
+            if reason is None and tier == "for_parts" and item.condition == "for_parts" and NOT_WORKING_WORDS.search(_seller_words(item)) \
+                    and WORKS_WORDS.search(record["title"] or "") and not NOT_WORKING_WORDS.search(record["title"] or ""):
+                reason = "works (yours doesn't): not comparable for parts"
             if reason is None:
                 reason = edition_exclusion(record["title"], _item_text(item))
             if reason is None and category == "console":
@@ -551,6 +616,7 @@ async def do_search_ebay(state: ResearcherState, query: str, conditions: list[st
             if reason is None and not state.brief.broadened:  # a broadened brief may swap the variant
                 # laptop titles write RAM as a bare size ("8GB 256GB"): the storage check would call it two variants
                 reason = (laptop_variant_exclusion(record["title"], f"{item.product} {item.variant}") if category == "laptop"
+                          else apparel_variant_exclusion(record["title"], item.variant, item.product) if category == "apparel"
                           else variant_exclusion(record["title"], item.variant))
                 if reason is None and category == "handbag":
                     reason = bag_variant_exclusion(record["title"], f"{item.product} {item.variant}")
@@ -574,6 +640,7 @@ async def do_search_ebay(state: ResearcherState, query: str, conditions: list[st
     }
 
 
+THIRD_PARTY = "third-party seller, not a mainstream retailer"
 RETAIL_SIZE = re.compile(r"\s*\b(?:size|sz)\.?\s*\d+(?:\.5)?\s*(?:[wm]\b)?", re.I)
 
 
@@ -625,6 +692,10 @@ async def do_search_retail(state: ResearcherState, query: str) -> dict:
         if reason := retail_title_exclusion(record["title"], state.run.item, state.brief.successor):
             state.dropped.append({"id": sid, "title": record["title"], "reason": reason, "by": "code"})
             continue
+        # A marketplace or independent seller's new price isn't a retail ceiling: decided here, not by the reviewer
+        if not is_major_retailer(record["retailer"], state.run.item.product):
+            state.dropped.append({"id": sid, "title": record["title"], "reason": f"{THIRD_PARTY} ({record['retailer']})", "by": "code"})
+            continue
         state.shown[sid] = "new"
         sale = f" (was {record['old_price']})" if record["old_price"] else ""
         lines.append(f"{sid} | {record['price']}{sale} | {record['retailer']} | {record['title']}")
@@ -674,6 +745,8 @@ def do_review(state: ResearcherState, exclude: list[Exclusion]) -> dict:
         # new. Retrying won't change that, so it's a result, not a gap.
         resale = sum(d["reason"].startswith("resale listing") for d in state.dropped)
         finding["only_resale_listings"] = not kept and resale > 0 and resale >= RESALE_ONLY_SHARE * finding["n_found"]
+        # new offers exist, but only from third-party sellers: no mainstream price, and a retry won't find one
+        finding["no_mainstream"] = not kept and not finding["only_resale_listings"] and any(d["reason"].startswith(THIRD_PARTY) for d in state.dropped)
     else:
         finding["conditions"] = list(dict.fromkeys(state.shown.values())) or brief.conditions
         finding["stats"] = market.comp_stats([run.sources[sid] for sid in kept])
@@ -764,8 +837,8 @@ listings and decide which ones are truly the same item as the seller's.
      Scott"), FlyEase, SE versions and custom or painted colorways ("special edition: <which>").
    - condition_tiers: condition differences are expected. Only judge whether it's the product.
    - retail: also exclude used, refurbished or renewed offers, and offers that state a different
-     variant (store titles often omit carrier: keep those). A new offer from a third-party
-     seller on a retail site (e.g. "Walmart - Cellfeee") is retail: keep it. Don't exclude it because
+     variant (store titles often omit carrier: keep those). Code has already dropped
+     third-party marketplace sellers. Don't exclude a store offer because
      its price looks high or low; only when the price means it's another product (a $9 "AirPods"
      is an accessory).
    When unsure, keep the listing. Don't trust your memory of which models exist: products newer
@@ -834,11 +907,19 @@ def find_gaps(findings: list[dict], item: "Item | None" = None) -> list[str]:
     # A boutique-only brand (Chanel, Hermès, Rolex) has no online retail price to find: not a gap
     # ... nor are searches that errored: that's reported below as a failure, not as "discontinued"
     if retail and not boutique and not any(f["n_kept"] for f in retail) and not any(f["only_resale_listings"] for f in retail) \
-            and not all(f["errors"] for f in retail):
+            and not all(f["errors"] for f in retail) and not any(f.get("no_mainstream") for f in retail):
         gaps.append(
             "No new retail price found. The item may be discontinued: try the product line without "
             "the variant, or its successor model, for a ceiling."
         )
+    # Only resale listings for one short query ("Dyson V8") may just be the query: one more try with
+    # the store's full product name ("Dyson V8 Cordless Vacuum"). After two, it's final.
+    retail_queries = [q for f in retail for q in f["queries"]]
+    if retail and not boutique and not any(f["n_kept"] for f in retail) and any(f["only_resale_listings"] for f in retail) \
+            and len(set(retail_queries)) < 2:
+        gaps.append(f"Retail search for '{retail_queries[0] if retail_queries else ''}' returned only resale listings. Try once more with "
+                    "the full product name a store would use (brand, model and product type, e.g. 'Dyson V8 Cordless Vacuum'); "
+                    "not a successor model.")
     for f in findings:
         for where, error in f["errors"].items():
             if PERMANENT_ERROR.search(error):  # quota, credentials, a test budget: a retry fails the same way
@@ -864,7 +945,9 @@ def lead_summary(finding: dict) -> dict:
         summary["median_new_price"] = stats.get("median")
         summary["lowest_new_price"] = stats.get("min")
         if finding["only_resale_listings"]:
-            summary["result"] = "No new retail found: Google Shopping returned only resale listings. Don't retry retail."
+            summary["result"] = "No new retail found: Google Shopping returned only resale listings. See the gaps for whether to try once more."
+        elif finding.get("no_mainstream"):
+            summary["result"] = "No mainstream retail price: only third-party sellers list it new. Don't retry retail or search a successor."
     else:
         summary["conditions"] = finding["conditions"]
         summary["median_price_with_shipping"] = stats["price_with_shipping"].get("median")
@@ -930,7 +1013,8 @@ code computes every number.
    - no retail price: the item is likely discontinued. First a retail brief with the product as a
      store would name it; if that also finds none, a retail brief for its successor model (e.g.
      AirPods Pro 3 for AirPods Pro 2) with successor = true. Don't search part numbers.
-   A retail finding that says only resale listings came back is final: don't send retail again.
+   A retail finding that says only resale listings came back is final once two queries have
+   tried (the gaps say when to try once more): then don't send retail again.
    So is a retail_note in the result (a boutique-only brand such as Chanel): no successor search.
    successor is false on every brief except a successor-model retail brief.
    You have {MAX_ROUNDS} rounds in all. Never repeat a brief that already ran.
@@ -969,6 +1053,9 @@ and add an assumption like "Port version not given: comps include both Lightning
 Handbags: size, leather (caviar, lambskin) and hardware (gold, silver) all change the price. Put
 every one the user gave in variant and search_query, e.g. variant "medium, caviar, gold hardware".
 Size is required; leather and hardware not given become assumptions.
+Appliances with product lines (a Dyson V8 Animal, Absolute or Origin): put the line in product
+when given; when it isn't, don't ask: add an assumption ("V8 line not given: comps mix Animal,
+Absolute and other V8 models").
 Each assumption is one short sentence about one detail. Authenticity is never an assumption: don't
 add one about it (the memo covers it).
 If the user has already been asked twice, go ahead with what you have, listing assumptions,
@@ -1016,12 +1103,14 @@ Price range (price_low to price_high, in dollars):
     is the successor model's: a looser ceiling.
   - "premium" (ratio > 1): the item resells above retail (out of stock, limited, discontinued).
     Say so with the ratio, e.g. "used listings ask 1.4x the $199 retail price", and price
-    from the comps alone.
+    from the comps alone. For an everyday item (not vintage, collectible or luxury) code adds a
+    limitation flagging it and caps confidence at medium: lean toward Q1, not the median.
   - null: no retail price. retail_status.note says why, in code's words: use its meaning and
     never contradict it. "boutique_only" means the brand sells new only in its boutiques: say
     so, and never call the item discontinued. "discontinued" / "not_found": say retail couldn't
     be checked online. "search_failed": the search errored; say the retail price couldn't be
-    checked, and don't call the item discontinued or unavailable.
+    checked, and don't call the item discontinued or unavailable. "no_mainstream": only third-party
+    sellers list it new; say there's no mainstream retail price and don't quote theirs.
 - new_vs_retail, when present, means sealed-new listings on eBay sit far below retail. Code adds
   its sentence to the key factors: don't restate it, but you may rely on it in the rationale.
 - If the comps came from a broadened search (adjacent variant or condition), say so.
@@ -1226,6 +1315,9 @@ def retail_status(run: Run) -> dict:
     if no_new_retail(run):
         return {"status": "discontinued", "note": "No new retail found: Google Shopping returned only resale listings, so the item is likely discontinued. The price comes from comps alone."}
     retail = [f for f in run.findings if f["researcher"] == "retail"]
+    if any(f.get("no_mainstream") for f in retail):
+        return {"status": "no_mainstream", "note": "No mainstream retail price: no big-box or brand store lists it new online, only third-party sellers, "
+                                                   "whose prices aren't used as a ceiling. The price comes from comps alone."}
     if retail and all(f["errors"] for f in retail):
         # every retail search errored: say why, don't present it as "not sold" or "discontinued"
         reason = api_reason(next(iter(retail[-1]["errors"].values())))
@@ -1253,7 +1345,7 @@ def new_vs_retail(run: Run) -> dict | None:
     ratio = st["median"] / ref["price"]
     if ratio > NEW_BELOW_RETAIL:
         return None
-    sentence = (f"Sealed new listings on eBay ask a median {_money(st['median'])} across {st['n']} listings, "
+    sentence = (f"Sealed new listings on eBay ask a median {_money(st['median'])} across {st['n']} sealed new listings, "
                 f"{round((1 - ratio) * 100)}% below retail ({ceiling_text(ref)}): "
                 f"buyers can get it new for well under retail, which pulls used prices down.")
     return {"n": st["n"], "median": st["median"], "retail_price": ref["price"], "ratio": round(ratio, 2), "sentence": sentence}
@@ -1300,6 +1392,30 @@ def count_mismatches(texts: list[str], kept: int) -> list[int]:
     return wrong
 
 
+def fix_counts(memo: "Memo", kept: int) -> "Memo":
+    """The last resort when the Writer keeps a wrong comp count. In the headline and the confidence
+    reason (about the comps by design) the number becomes the kept count; elsewhere the sentence
+    is dropped, since a wrong count may stand for some other subset and guessing which is worse."""
+    def wrong_at(text: str) -> list:
+        return [m for m in COUNT_CLAIM.finditer(text) if int(m.group(1)) != kept
+                and not re.search(r"\b(excluded|excluding|dropped|removed|left out)\b", text[max(0, m.start() - 25):m.start()].lower())]
+
+    def renumber(text: str) -> str:
+        for m in reversed(wrong_at(text)):
+            text = text[:m.start(1)] + str(kept) + text[m.end(1):]
+        return text
+
+    def drop(text: str) -> str:
+        return " ".join(s for s in SENTENCE.split(text) if not wrong_at(s))
+
+    return memo.model_copy(update={
+        "headline": renumber(memo.headline),
+        "confidence_reason": renumber(memo.confidence_reason),
+        "rationale": drop(memo.rationale),
+        "key_factors": [k for k in memo.key_factors if not wrong_at(k)],
+    })
+
+
 def comp_spread(run: Run) -> float | None:
     """IQR / median of the kept comps: 0.2 means the middle half sits within 20% of the median."""
     st = comp_basis(run)[1]
@@ -1315,7 +1431,12 @@ def no_new_retail(run: Run) -> bool:
 MAJOR_RETAILERS = ("best buy", "target", "walmart", "amazon", "apple", "costco", "sam's club", "macy's", "nordstrom",
                    "kohl's", "dick's", "foot locker", "finish line", "jd sports", "champs", "zappos", "academy",
                    "b&h", "newegg", "staples", "home depot", "lowe's", "gamestop", "verizon", "at&t", "t-mobile",
-                   "bloomingdale", "saks", "neiman marcus", "dsw", "rei", "ulta", "sephora", "kicks crew")
+                   "bloomingdale", "saks", "neiman marcus", "dsw", "rei", "ulta", "sephora", "kicks crew",
+                   "playstation direct", "microsoft", "samsung", "google store", "dell", "lenovo", "micro center",
+                   "adorama", "office depot", "bj's", "meijer", "kroger", "jcpenney", "belk", "dillard", "scheels",
+                   "bass pro", "cabela", "wayfair", "bed bath", "qvc", "hsn", "nordstrom rack", "anthropologie",
+                   "urban outfitters", "gap", "old navy", "h&m", "uniqlo", "zara", "nike", "adidas", "dyson",
+                   "nintendo", "sony", "lululemon")
 OUTLIER_SHARE = 0.6  # an offer under this share of the retail median is a deal or a mistake, not the ceiling
 
 
@@ -1325,7 +1446,7 @@ def is_major_retailer(retailer: str, product: str) -> bool:
     brand = (product or "").split()[0].lower() if product else ""
     first_party = len(brand) > 2 and r.split(" - ")[0].strip().startswith(brand)
     # "Walmart - Cellfeee" is a marketplace seller on Walmart, not Walmart
-    return first_party or (" - " not in r and any(m in r for m in MAJOR_RETAILERS))
+    return first_party or (" - " not in r and any(re.search(rf"(?<!\w){re.escape(m)}(?!\w)", r) for m in MAJOR_RETAILERS))
 
 
 def retail_reference(run: Run) -> dict | None:
@@ -1338,7 +1459,7 @@ def retail_reference(run: Run) -> dict | None:
     for successor in (False, True):
         ids = [sid for f in retail if f["successor"] == successor for sid in f["kept_ids"]]
         priced = [sid for sid in dict.fromkeys(ids) if run.sources[sid]["extracted_price"] is not None]
-        if priced:
+        if any(is_major_retailer(run.sources[s]["retailer"], run.item.product) for s in priced):
             break
     else:
         return None
@@ -1348,8 +1469,10 @@ def retail_reference(run: Run) -> dict | None:
     for s in sorted(priced, key=p):
         per_store.setdefault((run.sources[s]["retailer"] or s).lower(), s)
     stores = list(per_store.values())
-    major = [s for s in stores if is_major_retailer(run.sources[s]["retailer"], run.item.product)]
-    pool = major if len(major) >= 2 else stores
+    # Only big-box and brand stores set the ceiling: a marketplace seller's markup isn't a retail price
+    pool = major = [s for s in stores if is_major_retailer(run.sources[s]["retailer"], run.item.product)]
+    if not pool:
+        return None
     first = market.price_stats([p(s) for s in pool])["median"]
     outliers = [s for s in pool if p(s) < OUTLIER_SHARE * first]
     pool = [s for s in pool if s not in outliers] or pool
@@ -1359,9 +1482,8 @@ def retail_reference(run: Run) -> dict | None:
         basis, retailer = f"{run.sources[single]['retailer']}'s price", run.sources[single]["retailer"]
     else:
         names = list(dict.fromkeys(run.sources[s]["retailer"] for s in sorted(pool, key=p)))
-        kind = "major-retailer" if pool[0] in major and len(major) >= 2 else "retail"
-        basis = f"median of {len(pool)} {'major retailers' if kind == 'major-retailer' else 'retailers'}: {', '.join(names[:3])}{', …' if len(names) > 3 else ''}"
-        retailer = "major retailers" if kind == "major-retailer" else "retailers"
+        basis = f"median of {len(pool)} major retailers: {', '.join(names[:3])}{', …' if len(names) > 3 else ''}"
+        retailer = "major retailers"
     lowest = min(priced, key=p)
     lowest_note = None
     if p(lowest) < 0.95 * ceiling and lowest != single:
@@ -1395,6 +1517,30 @@ def ceiling_text(ref: dict) -> str:
     return f"{_money(ref['price'])} ({ref['basis']})"
 
 
+COLLECTIBLE = r"\bcollectible\b|\blimited\b|\brare\b|\bsigned\b|\bautographed\b|\bfirst edition\b|\bretro\b|\bdiscontinued\b|\bgraded\b"
+
+
+def mixed_lines(run: Run) -> list[str]:
+    """Product lines the kept comps name when the seller named none ('Dyson V8' comps mixing
+    Animal, Absolute and Origin): two or more means the comps aren't one product."""
+    if re.search(rf"\b({PRODUCT_LINES})\b", run.item.product or "", re.I):
+        return []
+    found = Counter(m.lower() for s in kept_comp_ids(run) for m in set(re.findall(rf"\b({PRODUCT_LINES})\b", run.sources[s]["title"] or "", re.I)))
+    return sorted(found) if len(found) >= 2 else []
+
+
+def above_retail(run: Run) -> bool:
+    """A non-new everyday item whose comps ask more than the retail ceiling: suspicious. Vintage,
+    collectible and luxury items can resell above retail, so they're exempt."""
+    if run.item.condition == "new":
+        return False
+    prof = item_profile(run.item)
+    if prof["luxury"] or prof["similar_items"] or re.search(COLLECTIBLE, _item_text(run.item), re.I):
+        return False
+    ref = retail_reference(run)
+    return bool(ref and ref["role"] == "premium")
+
+
 def confidence_cap(run: Run) -> tuple[str, str]:
     """The highest confidence the data supports, from the kept comp count and their price spread.
     The Writer can go lower, never higher. Missing retail doesn't lower it; a successor ceiling does."""
@@ -1409,6 +1555,12 @@ def confidence_cap(run: Run) -> tuple[str, str]:
     spread_text = f"the middle half of prices spans {spread:.0%} of the median" if spread is not None else ""
     if spread is not None and spread > WIDE_SPREAD:
         return "low", f"comp prices vary widely: {spread_text}"
+    if above_retail(run):
+        return "medium", "used listings ask more than the retail ceiling, which for an everyday item points to newer models, bundles or new units in the comps"
+    if run.item.condition == "for_parts":
+        return "medium", "for-parts prices depend on what's wrong, which listing titles rarely say"
+    if lines := mixed_lines(run):
+        return "medium", f"the comps mix product lines that price differently ({', '.join(lines)}); naming the exact model would tighten the range"
     if n_exact < MIN_COMPS:
         return "medium", "the comps come partly from a broadened search (adjacent variant or condition)"
     if spread is not None and spread > TIGHT_SPREAD:
@@ -1533,6 +1685,11 @@ def apply_code_text(run: Run, clean: dict, warnings: list[str]) -> None:
     clean["key_factors"] = dedupe_factors(added + writer)
     if item_profile(run.item)["luxury"]:
         clean["limitations"] = [x for x in clean["limitations"] if "authentic" not in x.lower()] + [AUTH_LIMITATION]
+    if above_retail(run):
+        ref = retail_reference(run)
+        clean["limitations"] = [f"Used listings ask more than the retail ceiling ({_money(ref['comp_median'])} vs {ceiling_text(ref)}): for an "
+                                "everyday item that usually means the comps include newer models, bundles or new units, so check them "
+                                "before listing."] + clean["limitations"]
     if item_profile(run.item)["similar_items"]:
         clean["rationale"] = f"{SIMILAR_NOTE} {clean['rationale']}"
         clean["limitations"] = [SIMILAR_NOTE.split(":")[0] + "; the range is a rough guide."] + clean["limitations"]
@@ -1680,6 +1837,7 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
             unknown += u
 
     warnings = []
+    writer_texts = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"]]
     apply_code_text(run, clean, warnings)
     # a tag on a listing no researcher kept points the reader at something the price doesn't use
     used = {i for f in run.findings for i in f["kept_ids"]}
@@ -1708,8 +1866,8 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
     ref = retail_reference(run)
     if ref and ref["role"] == "ceiling" and high > ref["price"]:
         warnings.append(f"the range tops the retail ceiling ({ceiling_text(ref)})")
-    texts = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"]]
-    if wrong := count_mismatches(texts, len(kept_comp_ids(run))):
+    # only the Writer's own sentences: code's ("16 sealed new listings") state other counts on purpose
+    if wrong := count_mismatches(writer_texts, len(kept_comp_ids(run))):
         warnings.append(f"comp counts {sorted(set(wrong))} differ from the {len(kept_comp_ids(run))} kept comps")
     order = {"low": 0, "medium": 1, "high": 2}
     confidence = min(memo.confidence, cap[0], key=order.get)
@@ -1909,6 +2067,11 @@ async def write_memo(run: Run) -> tuple[str, dict | None]:
                 draft = revised
         except Exception as e:
             run.trace.record("writer", "recount", {"counts_found": sorted(set(wrong)), "kept": kept}, {"revised": False, "error": type(e).__name__})
+        # Still off after the retry: code corrects it, so the memo never states a wrong comp count
+        if still := count_mismatches([draft.headline, draft.rationale, draft.confidence_reason, *draft.key_factors], kept):
+            draft = fix_counts(draft, kept)
+            run.trace.record("writer", "recount (code fix)", {"counts_found": sorted(set(still)), "kept": kept},
+                             {"counts_left": count_mismatches([draft.headline, draft.rationale, draft.confidence_reason, *draft.key_factors], kept)})
     memo, check = validate_memo(run, draft, cap)
     rows = {"comps": comp_rows(run), "tiers": tier_rows(run), "retail": retail_rows(run)}
     markdown, sources = render(run, memo, rows, check["cited"])

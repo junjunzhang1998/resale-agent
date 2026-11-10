@@ -766,7 +766,7 @@ function retailSection(m) {
     // the server's note: boutique-only (Chanel, Hermès, Rolex) is not "discontinued"
     const st = m.retail_status || {};
     body += `<p>${esc(st.note || (m.no_new_retail_found ? "No new retail found: Google Shopping returned only resale listings, so the item is likely discontinued. The price comes from comps alone." : "No current new retail price found online. The price comes from comps alone."))}</p>`;
-    peek = st.status === "boutique_only" ? "boutique only" : st.status === "discontinued" ? "likely discontinued" : "none found";
+    peek = { boutique_only: "boutique only", discontinued: "likely discontinued", no_mainstream: "no mainstream price", search_failed: "search failed" }[st.status] || "none found";
   }
   return fold("Retail (new)", peek, body);
 }
