@@ -176,7 +176,7 @@ def guard_serpapi():
 
         def budgeted():
             if serpapi_live["n"] >= serpapi_live["budget"]:
-                raise RuntimeError("SerpApi budget for this test run reached")
+                raise market.ApiError("SerpApi", "budget", "SerpApi budget for this test run reached (scripts/scenario_tests.py --serpapi-budget).")
             serpapi_live["n"] += 1
             return fetch()
         return original(kind, params, budgeted, use_cache)

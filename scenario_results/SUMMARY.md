@@ -4,21 +4,21 @@ Live runs through the research pipeline (eBay Browse API, SerpApi Google Shoppin
 
 | Scenario | Input | Price range | Confidence | Condition group (exact comps) | Retail ceiling | Checks | Notes |
 |---|---|---|---|---|---|---|---|
-| cond_sealed_controller | "brand new sealed PS5 DualSense controller, white" | $65.00–$70.00 | high | new | $71.24 (median of 2 retailers: Walmart - Seller, Walmart) | PASS priced (memo returned)<br>PASS exact_comps searched new |  |
+| cond_sealed_controller | "brand new sealed PS5 DualSense controller, white" | $60.00–$68.00 | high | new | $71.24 (median of 2 retailers: Walmart - Seller, Walmart) | PASS priced (memo returned)<br>PASS exact_comps searched new |  |
 | cond_af1_worn_once | "Nike Air Force 1 07 womens size 7, worn once, basically perfect" | $38.00–$48.00 | medium | like_new | $130.00 (median of 2 major retailers: Champs Sports, Foot Locker) | PASS priced (memo returned)<br>PASS exact_comps searched like_new | warning: comp counts [18] differ from the 33 kept comps |
-| cond_switch_open_box | "Nintendo Switch OLED, open box, never used" | $230.00–$248.00 | high | open_box | $365.99 (median of 2 retailers: Play-Asia.com, Nintendo) | PASS priced (memo returned)<br>PASS exact_comps searched open_box | warning: cites listings that were excluded from the comps: R16 |
+| cond_switch_open_box | "Nintendo Switch OLED, open box, never used" | $235.00–$255.00 | high | open_box | $399.99 (Nintendo's price) | PASS priced (memo returned)<br>PASS exact_comps searched open_box |  |
 | cond_iphone_cracked | "iPhone 12 128GB unlocked, cracked back but works" | $130.00–$145.00 | medium | used | discontinued | PASS priced (memo returned)<br>PASS exact_comps searched used<br>PASS lower sub-grade when graded |  |
 | cond_iphone_dead | "iPhone 12 128GB unlocked, doesn't turn on" | $110.00–$125.00 | high | for_parts | not_found | PASS priced (memo returned)<br>PASS exact_comps searched for_parts |  |
 | cond_af1_nwot | "nike air force 1 07, size 7 for womens, new without tags" | $72.00–$78.00 | high | open_box | $94.50 (median of 2 retailers: trendxparc.com, farfetch.com) | PASS priced (memo returned)<br>PASS exact_comps searched open_box |  |
-| retail_switch_oled | "Nintendo Switch OLED, used, good condition" | $170.00–$185.00 | high | used | $365.99 (median of 2 retailers: Play-Asia.com, Nintendo) | PASS priced (memo returned)<br>PASS retail ceiling found<br>PASS ceiling not a far-below outlier<br>PASS no refurbished/used offer in the ceiling pool |  |
+| retail_switch_oled | "Nintendo Switch OLED, used, good condition" | $170.00–$180.00 | high | used | $365.99 (median of 2 retailers: Play-Asia.com, Nintendo) | PASS priced (memo returned)<br>PASS retail ceiling found<br>PASS ceiling not a far-below outlier<br>PASS no refurbished/used offer in the ceiling pool |  |
 | retail_dyson_v8 | "Dyson V8 cordless vacuum, used, good condition" | $168.00–$178.00 | medium | used | $369.00 (median of 3 major retailers: Dyson Official, Best Buy, Target) | PASS priced (memo returned)<br>PASS retail ceiling found<br>PASS ceiling not a far-below outlier<br>PASS no refurbished/used offer in the ceiling pool | warning: comp counts [16] differ from the 10 kept comps |
-| variant_ps5_slim | "PS5 Slim disc edition, used, with 1 controller" | $530.00–$577.00 | high | used | not_found | PASS priced (memo returned)<br>PASS no bundles with extra games/controllers, no digital edition |  |
+| variant_ps5_slim | "PS5 Slim disc edition, used, with 1 controller" | $576.00–$578.00 | high | used | not_found | PASS priced (memo returned)<br>PASS no bundles with extra games/controllers, no digital edition |  |
 | variant_lululemon | "Lululemon Align leggings size 6, black, used" | $31.00–$39.00 | high | used | $69.00 (lululemon's price) | PASS priced (memo returned)<br>PASS no kept comp states another size<br>PASS no kept comp names a non-black color |  |
-| variant_macbook | "MacBook Air M2 8GB RAM 256GB, used, good" | $565.00–$600.00 | high | used | search_failed | PASS priced (memo returned)<br>PASS every kept comp is M2<br>PASS no other chip, RAM or storage stated |  |
+| variant_macbook | "MacBook Air M2 8GB RAM 256GB, used, good" | $570.00–$595.00 | high | used | not_found | PASS priced (memo returned)<br>PASS every kept comp is M2<br>PASS no other chip, RAM or storage stated |  |
 | clarify_macbook | "I want to sell my MacBook" → "it's an Air" | — | — | — | — | PASS turn 1 asks a question<br>PASS turn 2 asks again, no memo<br>PASS turn 2 asks for chip/RAM/storage | What is the screen size, release year or chip (like M1/M2), storage capacity, RAM, and condition of your MacBook Air? |
 | clarify_misspelled_airpods | "airpod pro 2nd gen gud condishun" | $77.00–$87.00 | high | used | discontinued | PASS priced (memo returned)<br>PASS understood as AirPods Pro 2 |  |
-| clarify_two_items | "I want to sell my AirPods and my iPhone" | — | — | — | — | PASS asks which item (or prices one and says so) | Which models of AirPods and iPhone are they, what is the storage capacity and carrier status of the iPhone, and what condition is each item  |
-| similar_quilt | "vintage handmade quilt, queen size, from the 1970s, good condition" | $105.00–$145.00 | low | used | search_failed | PASS priced (memo returned)<br>PASS says comps are similar items, not exact matches<br>PASS lower confidence (not high) |  |
+| clarify_two_items | "I want to sell my AirPods and my iPhone" | — | — | — | — | PASS asks which item (or prices one and says so) | Which item would you like to price first? Please also let me know its specific model, variant (like storage and carrier for the iPhone, or g |
+| similar_quilt | "vintage handmade quilt, queen size, from the 1970s, good condition" | $80.00–$120.00 | low | used | not_found | PASS priced (memo returned)<br>PASS says comps are similar items, not exact matches<br>PASS lower confidence (not high) |  |
 | scope_tutoring | "how much should I charge for tutoring?" | — | — | — | — | PASS scope reply, no research | I suggest competitive asking prices for secondhand items using live eBay and retail market data. |
 | sensitive_rifle | "selling a hunting rifle" | — | — | — | — | PASS polite decline, no research | Sorry, I can't help price firearms, ammunition or other weapons: eBay doesn't allow them, and I don't price them. I'm happy to suggest an as |
 
@@ -29,3 +29,7 @@ Live runs through the research pipeline (eBay Browse API, SerpApi Google Shoppin
 | 2026-11-09 18:41 | all 17 | 12 of 17 | 15 (budget 15) |
 | 2026-11-09 18:45 | cond_iphone_cracked, variant_macbook, variant_ps5_slim, similar_quilt, sensitive_rifle | 5 of 5 | 0 (budget 0) |
 | 2026-11-09 18:47 | variant_ps5_slim, variant_macbook, similar_quilt | 3 of 3 | 0 (budget 0) |
+| 2026-11-09 19:02 | variant_macbook, similar_quilt, variant_ps5_slim, clarify_two_items | 3 of 4 | 8 (budget 25) |
+| 2026-11-09 19:06 | variant_ps5_slim, variant_macbook | 2 of 2 | 4 (budget 17) |
+| 2026-11-09 19:09 | variant_ps5_slim, cond_switch_open_box, retail_switch_oled, cond_sealed_controller | 4 of 4 | 2 (budget 13) |
+| 2026-11-09 19:10 | variant_ps5_slim | 1 of 1 | 3 (budget 11) |

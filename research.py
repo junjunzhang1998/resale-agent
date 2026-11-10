@@ -230,13 +230,20 @@ def laptop_variant_exclusion(title: str, variant: str) -> str | None:
 
 # Consoles: a bundle with extra games or controllers prices as more than the console. The seller's
 # own extras ("with 1 controller") are fine; disc and digital editions are different models.
-CONSOLE_BUNDLE = r"\bbundle\b|\b(2|3|4|two|three|four)\s*(x\s*)?controllers\b|\b(with|w/|\+|plus|&)\s*(\d+\s+)?(games?|titles)\b|\bgames? included\b|\b\d+\s+games\b"
+CONSOLE_BUNDLE = r"\bbundle\b|\b(2|3|4|two|three|four)\s*(x\s*)?controllers?\b|\b(with|w/|\+|plus|&)\s*(\d+\s+)?(games?|titles)\b|\bgames? included\b|\b\d+\s+games\b"
 
 
 def console_exclusion(title: str, item_text: str) -> str | None:
     title, item_text = title or "", item_text or ""
     if re.search(CONSOLE_BUNDLE, title, re.I) and not re.search(CONSOLE_BUNDLE, item_text, re.I):
         return "bundle with extras"
+    # console revisions: a PS5 Slim isn't the original PS5, a Switch OLED isn't the original Switch
+    for word in ("slim", "oled"):
+        mine, theirs = re.search(rf"\b{word}\b", item_text, re.I), re.search(rf"\b{word}\b", title, re.I)
+        if mine and not theirs:
+            return f"different model: not {word.upper() if word == 'oled' else word.title()}"
+        if theirs and not mine:
+            return f"different model: {word.upper() if word == 'oled' else word.title()}"
     for mine, other in (("disc", "digital"), ("digital", "disc")):
         if re.search(rf"\b{mine}\b", item_text, re.I) and re.search(rf"\b{other}\b", title, re.I) and not re.search(rf"\b{mine}\b", title, re.I):
             return f"different edition: {other}"
@@ -328,6 +335,27 @@ NEW_WORDS = re.compile(r"\bnew with (tags?|box)\b|\bnwt\b|\bnwb\b|\bsealed\b|\bb
 NOT_WORKING_WORDS = re.compile(r"\b(does ?n[o']?t|wo ?n[o']?t|will not|can ?n[o']?t|does not|won't|doesn't)\s+(turn on|power on|boot|charge|work|start)\b"
                                r"|\bnot (working|turning on|powering on)\b|\bfor parts\b|\bparts only\b|\bdead\b|\bno power\b|\bbricked\b", re.I)
 WORKS_WORDS = re.compile(r"\b(but |still |fully )?(works|working|functional|functions)( fine| great| perfectly| normally)?\b", re.I)
+
+
+def drop_guessed_variant(item: "Item", user_text: str) -> "Item":
+    """Storage or carrier the seller never said ("1TB" assumed for a PS5) is a guess: the strict
+    variant check would then drop every listing that doesn't state it. Leave it out instead."""
+    said = re.sub(r"\s+", "", (user_text or "").lower())
+    guessed = [f"{n}{u}" for n, u in STORAGE.findall(item.variant or "") if f"{n}{u}".lower() not in said]
+    guessed += [c for c in CARRIERS if re.search(rf"(?<!\w){re.escape(c)}(?!\w)", (item.variant or "").lower()) and c not in (user_text or "").lower()]
+    if not guessed:
+        return item
+
+    def strip(text: str) -> str:
+        for g in guessed:
+            if g[-2:].lower() in ("gb", "tb"):  # "1TB" also as "1 TB"
+                pattern = rf"\b{re.escape(g[:-2])}\s*{g[-2:]}\b"
+            else:
+                pattern = rf"(?<!\w){re.escape(g)}(?!\w)"
+            text = re.sub(pattern, " ", text or "", flags=re.I)
+        return " ".join(text.replace(" ,", ",").split()).strip(" ,")
+
+    return item.model_copy(update={"variant": strip(item.variant), "search_query": strip(item.search_query)})
 
 
 def map_condition(item: "Item", text: str = "") -> str:
@@ -555,6 +583,26 @@ def retail_query(query: str) -> str:
     return " ".join(RETAIL_SIZE.sub(" ", query or "").split()) or query
 
 
+def retail_title_exclusion(title: str, item: "Item", successor: bool = False) -> str | None:
+    """The code checks eBay listings get, for a store offer: bundles, editions and stated
+    variants. Store titles often leave a variant out, so only a different stated one counts. A
+    successor-model search skips the model and chip checks (it's a different model by design)."""
+    category = item_profile(item)["category"]
+    if re.search(r"\b(refurbished|renewed|pre-?owned|used|open box)\b", title or "", re.I):
+        return "not new: refurbished / used offer"
+    if category == "console" and (reason := console_exclusion(title, f"{_item_text(item)} {item.condition_detail}")):
+        return reason
+    if not successor and category not in ("handbag",) and (reason := model_exclusion(title, item.product)):
+        return reason
+    if category == "laptop":
+        reason = laptop_variant_exclusion(title, f"{'' if successor else item.product} {item.variant}")
+        return reason if reason and not reason.startswith("variant not stated") else None
+    if category == "handbag":
+        return bag_variant_exclusion(title, f"{item.product} {item.variant}")
+    reason = variant_exclusion(title, item.variant)
+    return reason if reason and reason.startswith("different") else None
+
+
 async def do_search_retail(state: ResearcherState, query: str) -> dict:
     query = retail_query(query)
     try:
@@ -573,6 +621,9 @@ async def do_search_retail(state: ResearcherState, query: str) -> dict:
         # Chanel, Hermès, Rolex sell new only in their boutiques: any other "new" offer is a reseller
         if boutique and not re.search(BOUTIQUE_ONLY_BRANDS[boutique], record["retailer"] or "", re.I):
             state.dropped.append({"id": sid, "title": record["title"], "reason": f"resale listing ({record['retailer']}; {boutique} sells new only in boutiques)", "by": "code"})
+            continue
+        if reason := retail_title_exclusion(record["title"], state.run.item, state.brief.successor):
+            state.dropped.append({"id": sid, "title": record["title"], "reason": reason, "by": "code"})
             continue
         state.shown[sid] = "new"
         sale = f" (was {record['old_price']})" if record["old_price"] else ""
@@ -781,15 +832,28 @@ def find_gaps(findings: list[dict], item: "Item | None" = None) -> list[str]:
     retail = [f for f in findings if f["researcher"] == "retail"]
     # Only resale listings came back: recorded as "no new retail found", not retried
     # A boutique-only brand (Chanel, Hermès, Rolex) has no online retail price to find: not a gap
-    if retail and not boutique and not any(f["n_kept"] for f in retail) and not any(f["only_resale_listings"] for f in retail):
+    # ... nor are searches that errored: that's reported below as a failure, not as "discontinued"
+    if retail and not boutique and not any(f["n_kept"] for f in retail) and not any(f["only_resale_listings"] for f in retail) \
+            and not all(f["errors"] for f in retail):
         gaps.append(
             "No new retail price found. The item may be discontinued: try the product line without "
             "the variant, or its successor model, for a ceiling."
         )
     for f in findings:
         for where, error in f["errors"].items():
-            gaps.append(f"{f['researcher']} search failed ({where}): {error}")
+            if PERMANENT_ERROR.search(error):  # quota, credentials, a test budget: a retry fails the same way
+                gaps.append(f"{f['researcher']} search failed ({where}): {api_reason(error)} Retrying won't help: don't send {f['researcher']} again.")
+            else:
+                gaps.append(f"{f['researcher']} search failed ({where}): {error}")
     return gaps
+
+
+PERMANENT_ERROR = re.compile(r"quota|rate-limited|rejected the credentials|credentials missing|key missing|budget", re.I)
+
+
+def api_reason(error: str) -> str:
+    """'ApiError: SerpApi quota used up ...' -> 'SerpApi quota used up ...' (the message says what to do)."""
+    return re.sub(r"^\w*Error:\s*", "", error or "").strip()
 
 
 def lead_summary(finding: dict) -> dict:
@@ -1163,8 +1227,10 @@ def retail_status(run: Run) -> dict:
         return {"status": "discontinued", "note": "No new retail found: Google Shopping returned only resale listings, so the item is likely discontinued. The price comes from comps alone."}
     retail = [f for f in run.findings if f["researcher"] == "retail"]
     if retail and all(f["errors"] for f in retail):
-        # every retail search errored: say so, don't present it as "not sold" or "discontinued"
-        return {"status": "search_failed", "note": "The retail price couldn't be checked: the Google Shopping search failed. The price comes from comps alone."}
+        # every retail search errored: say why, don't present it as "not sold" or "discontinued"
+        reason = api_reason(next(iter(retail[-1]["errors"].values())))
+        return {"status": "search_failed", "reason": reason,
+                "note": f"The retail price couldn't be checked: {reason.rstrip('.')}. The price comes from comps alone."}
     return {"status": "not_found", "note": "No current new retail price found online. The price comes from comps alone."}
 
 
@@ -1615,6 +1681,23 @@ def validate_memo(run: Run, memo: Memo, cap: tuple[str, str]) -> tuple[dict, dic
 
     warnings = []
     apply_code_text(run, clean, warnings)
+    # a tag on a listing no researcher kept points the reader at something the price doesn't use
+    used = {i for f in run.findings for i in f["kept_ids"]}
+    dropped = {e["id"] for f in run.findings for e in f["excluded"]} - used
+    stripped = set()
+
+    def strip_excluded(text: str) -> str:
+        def sub(m):
+            stripped.add(m.group(1))
+            return ""
+        return re.sub(r"\s*\[(" + "|".join(map(re.escape, sorted(dropped))) + r")\]", sub, text) if dropped else text
+
+    for k in ("headline", "rationale", "confidence_reason"):
+        clean[k] = strip_excluded(clean[k])
+    for k in ("key_factors", "limitations"):
+        clean[k] = [strip_excluded(x) for x in clean[k]]
+    if stripped:
+        warnings.append(f"removed citations to excluded listings: {', '.join(sorted(stripped, key=lambda s: (s[0], int(s[1:]))))}")
     # what's cited after code's edits (stat tags dropped, code sentences added)
     final = [clean["headline"], clean["rationale"], clean["confidence_reason"], *clean["key_factors"], *clean["limitations"]]
     cited = [i for t in final for i in re.findall(r"\[([ER]\d+)\]", t) if i in run.sources]
@@ -1798,6 +1881,10 @@ def render(run: Run, memo: dict, rows: dict, cited: list[str]) -> tuple[str, dic
 
 async def write_memo(run: Run) -> tuple[str, dict | None]:
     if not kept_comp_ids(run):
+        # eBay itself failed (quota, credentials): say that, not "couldn't find enough listings"
+        failed = [api_reason(e) for f in comps_findings(run) for e in f["errors"].values()]
+        if failed and not any(f["n_found"] for f in comps_findings(run)):
+            return f"I couldn't search eBay, so I can't price this yet: {failed[0]}", None
         searched = "; ".join(f"{f['researcher']}: {', '.join(f['queries'])}" for f in run.findings) or "nothing"
         retail = retail_reference(run)
         extra = f" For reference, it sells new for {ceiling_text(retail)}." if retail else ""
@@ -1895,6 +1982,11 @@ async def answer(turns: list[dict], clarifications: int) -> dict:
     if (mapped := map_condition(item, user_text)) != item.condition:
         trace.record("lead", "map_condition", {"intake": item.condition, "words": item.condition_detail}, {"condition": mapped})
         item = item.model_copy(update={"condition": mapped})
+    # a variant detail may come from an answer to a clarifying question: check every user turn
+    said = " ".join(t["content"] for t in turns if t["role"] == "user")
+    if (unguessed := drop_guessed_variant(item, said)) != item:
+        trace.record("lead", "drop_guessed_variant", {"variant": item.variant}, {"variant": unguessed.variant, "search_query": unguessed.search_query})
+        item = unguessed
     run = Run(item=item, assumptions=split_assumptions(intake.assumptions), trace=trace)
     try:
         await asyncio.wait_for(Runner.run(lead, run.item.model_dump_json(indent=1), context=run, hooks=trace, max_turns=8), RESEARCH_TIMEOUT)

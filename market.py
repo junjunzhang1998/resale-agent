@@ -41,6 +41,44 @@ CONDITION_IDS = {
 _token = {"value": None, "expires": 0.0}
 
 
+# --- Errors a person can act on ---
+
+
+class ApiError(RuntimeError):
+    """A failed API call, with what kind of failure it was so the memo can say it plainly.
+    kind: "quota" (out of searches / rate limited), "auth" (key missing or rejected), "budget"
+    (a test run's own cap), or "other"."""
+
+    def __init__(self, service: str, kind: str, message: str):
+        super().__init__(message)
+        self.service, self.kind = service, kind
+
+
+QUOTA_TEXT = ("run out of searches", "out of searches", "searches per month", "plan limit", "rate limit", "too many requests", "quota")
+AUTH_TEXT = ("invalid api key", "api key", "unauthorized", "invalid_client", "forbidden", "credentials")
+
+
+def classify(service: str, status: int | None, text: str) -> ApiError:
+    """An HTTP status and error text -> an ApiError with a message a person can act on."""
+    low = (text or "").lower()
+    if status == 429 or any(t in low for t in QUOTA_TEXT):
+        return ApiError(service, "quota", f"{service} quota used up or rate-limited ({text or status}). Retry later or raise the plan's limit.")
+    if status in (401, 403) or any(t in low for t in AUTH_TEXT):
+        key = "SERPAPI_KEY" if service == "SerpApi" else "EBAY_CLIENT_ID / EBAY_CLIENT_SECRET"
+        return ApiError(service, "auth", f"{service} rejected the credentials ({text or status}). Check {key}.")
+    return ApiError(service, "other", f"{service} error: {text or status}")
+
+
+def _raise_for(service: str, response: httpx.Response) -> None:
+    if response.status_code >= 400:
+        try:
+            body = response.json()
+            text = body.get("error_description") or body.get("error") or json.dumps(body.get("errors", body))[:200]
+        except ValueError:
+            text = response.text[:200]
+        raise classify(service, response.status_code, str(text))
+
+
 # --- Disk cache ---
 
 
@@ -81,7 +119,7 @@ def _ebay_token() -> str:
         return _token["value"]
     client_id, secret = os.environ.get("EBAY_CLIENT_ID"), os.environ.get("EBAY_CLIENT_SECRET")
     if not client_id or not secret:
-        raise RuntimeError("Set EBAY_CLIENT_ID and EBAY_CLIENT_SECRET (production keyset) in .env.")
+        raise ApiError("eBay", "auth", "eBay credentials missing: set EBAY_CLIENT_ID and EBAY_CLIENT_SECRET (production keyset) in .env.")
     basic = base64.b64encode(f"{client_id}:{secret}".encode()).decode()
     response = httpx.post(
         EBAY_TOKEN_URL,
@@ -89,7 +127,7 @@ def _ebay_token() -> str:
         data={"grant_type": "client_credentials", "scope": EBAY_SCOPE},
         timeout=TIMEOUT,
     )
-    response.raise_for_status()
+    _raise_for("eBay", response)
     body = response.json()
     _token.update(value=body["access_token"], expires=time.time() + body.get("expires_in", 7200) - 60)
     return _token["value"]
@@ -184,7 +222,9 @@ def ebay_search(
             },
             timeout=TIMEOUT,
         )
-        response.raise_for_status()
+        if response.status_code == 401:
+            _token["value"] = None  # a revoked or expired token: get a new one next call
+        _raise_for("eBay", response)
         return response.json()
 
     body = _cached("ebay", params, fetch, use_cache)
@@ -232,14 +272,14 @@ def retail_search(query: str, limit: int = 20, use_cache: bool = True) -> dict:
     def fetch():
         key = os.environ.get("SERPAPI_KEY")
         if not key:
-            raise RuntimeError("Set SERPAPI_KEY in .env.")
+            raise ApiError("SerpApi", "auth", "SerpApi key missing: set SERPAPI_KEY in .env.")
         response = httpx.get(SERPAPI_URL, params={**params, "api_key": key}, timeout=TIMEOUT)
         body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
         error = body.get("error", "")
         if "hasn't returned any results" in error:
             return {"shopping_results": []}  # no results is an answer, not a failure
         if error or response.status_code != 200:
-            raise RuntimeError(f"SerpApi: {error or response.status_code}")
+            raise classify("SerpApi", response.status_code if response.status_code != 200 else None, error or str(response.status_code))
         return body
 
     body = _cached("serpapi", params, fetch, use_cache)

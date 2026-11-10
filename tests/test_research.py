@@ -1033,3 +1033,91 @@ def test_weapon_is_declined_before_any_model_call(monkeypatch):
     out = asyncio.run(research.answer([{"role": "user", "content": "selling a hunting rifle"}], 0))
     assert out["memo"] is None and not out["clarifying"] and "can't help price firearms" in out["response"]
     assert [c["name"] for c in out["tool_calls"]] == ["decline"]
+
+
+# --- Quota and credential errors say what happened ---
+
+
+@pytest.mark.parametrize("service, status, text, kind", [
+    ("SerpApi", None, "Your account has run out of searches.", "quota"),
+    ("SerpApi", 429, "", "quota"),
+    ("SerpApi", 401, "Invalid API key. Your API key should be here: https://serpapi.com/manage-api-key", "auth"),
+    ("eBay", 401, "invalid_client", "auth"),
+    ("eBay", 500, "Internal error", "other"),
+])
+def test_api_errors_are_classified(service, status, text, kind):
+    e = market.classify(service, status, text)
+    assert e.kind == kind and e.service == service
+    if kind == "auth":
+        assert ("SERPAPI_KEY" if service == "SerpApi" else "EBAY_CLIENT_ID") in str(e)
+
+
+def test_quota_error_reaches_the_memo_and_isnt_retried():
+    run = new_run()
+    f = fake_finding("retail", n_kept=0)
+    f["errors"] = {"retail": "ApiError: " + str(market.classify("SerpApi", None, "Your account has run out of searches."))}
+    run.findings.append(f)
+    status = research.retail_status(run)
+    assert status["status"] == "search_failed" and "SerpApi quota used up" in status["note"]
+    gap = research.find_gaps([fake_finding(), f])[0]
+    assert "Retrying won't help" in gap and not gap.startswith("retail search failed (retail): ApiError")
+
+
+def test_ebay_failure_is_reported_as_a_failure_not_as_no_listings():
+    run = new_run()
+    f = fake_finding(n_kept=0)
+    f["n_found"], f["errors"] = 0, {"used": "ApiError: " + str(market.classify("eBay", 401, "invalid_client"))}
+    run.findings.append(f)
+    response, memo = asyncio.run(research.write_memo(run))
+    assert memo is None and response.startswith("I couldn't search eBay") and "EBAY_CLIENT_ID" in response
+
+
+MBA = Item(product="Apple MacBook Air M2", variant="8GB RAM, 256GB", condition="used", condition_detail="good", included="",
+           search_query="MacBook Air M2 8GB 256GB")
+PS5 = Item(product="Sony PS5 Slim", variant="disc edition", condition="used", condition_detail="with 1 controller", included="1 controller",
+           search_query="PS5 Slim disc")
+
+
+@pytest.mark.parametrize("title, item, successor, reason", [
+    ("2022 Apple M2 MacBook Air 13\" 8GB/256GB SSD (Midnight)", MBA, False, None),
+    ("13-inch MacBook Air (M5) - Midnight 10-core CPU / 24GB / 2TB", MBA, True, "different RAM: 24gb"),  # successor: chip may differ, specs may not
+    ("13-inch Apple MacBook Air M5", MBA, False, "different chip: M5"),
+    ("Apple MacBook Air M2 chip", MBA, False, None),  # a store title that leaves the specs out is kept
+    ("Apple MacBook Air M2 8GB 256GB - Refurbished", MBA, False, "not new: refurbished / used offer"),
+    ("Sony PlayStation 5 Slim 1TB Disc Bundle Console", PS5, False, "bundle with extras"),
+    ("Sony PS5 slim disc edition w/2 controller, charging station", PS5, False, "bundle with extras"),
+    ("Sony PlayStation 5 Slim Digital Edition", PS5, False, "different edition: digital"),
+    ("Sony PlayStation 5 Slim Disc Console", PS5, False, None),
+])
+def test_store_offers_get_the_same_code_checks(title, item, successor, reason):
+    assert research.retail_title_exclusion(title, item, successor) == reason
+
+
+def test_a_guessed_storage_is_left_out_of_the_variant():
+    guessed = PS5.model_copy(update={"variant": "disc edition, 1TB", "search_query": "PS5 Slim Disc 1TB"})
+    fixed = research.drop_guessed_variant(guessed, "PS5 Slim disc edition, used, with 1 controller")
+    assert (fixed.variant, fixed.search_query) == ("disc edition", "PS5 Slim Disc")
+    said = research.drop_guessed_variant(guessed, "PS5 Slim disc 1 TB, used")  # the seller said it
+    assert said.variant == "disc edition, 1TB"
+    phone = ITEM.model_copy(update={"variant": "128GB, unlocked", "search_query": "iPhone 13 Pro 128GB unlocked"})
+    assert research.drop_guessed_variant(phone, "iPhone 13 Pro 128GB, used").variant == "128GB"
+
+
+@pytest.mark.parametrize("title, item_text, reason", [
+    ("Sony PlayStation 5 Disc Console", "Sony PS5 Slim disc edition", "different model: not Slim"),
+    ("Sony PS5 Slim Disc Console", "Sony PS5 disc edition", "different model: Slim"),
+    ("Nintendo Switch Neon 32GB", "Nintendo Switch OLED", "different model: not OLED"),
+    ("Nintendo Switch OLED White", "Nintendo Switch OLED", None),
+])
+def test_console_revisions(title, item_text, reason):
+    assert research.console_exclusion(title, item_text) == reason
+
+
+def test_citations_to_excluded_listings_are_removed():
+    run = run_with_sources(12)
+    run.register("E", "x", {"title": "bundle", "price": 700.0, "shippingCost": 0.0, "totalPrice": 700.0, "condition": "Used",
+                            "buyingOptions": ["FIXED_PRICE"], "itemWebUrl": "https://www.ebay.com/itm/x"})  # E13
+    run.findings[0]["excluded"] = [{"id": "E13", "title": "bundle", "reason": "bundle with extras", "by": "code"}]
+    clean, check = research.validate_memo(run, memo_with(rationale="Bundles ask $700 [E13]; singles $81 [E1]."), research.confidence_cap(run))
+    assert "[E13]" not in clean["rationale"] and "[E1]" in clean["rationale"]
+    assert "E13" not in check["cited"] and any("removed citations to excluded listings: E13" in w for w in check["warnings"])
